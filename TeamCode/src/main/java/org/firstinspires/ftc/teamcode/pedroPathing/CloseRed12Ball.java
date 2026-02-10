@@ -6,11 +6,14 @@ import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
+import com.pedropathing.math.Vector;
 import com.pedropathing.paths.PathChain;
 import com.pedropathing.ftc.PoseConverter;
 import com.pedropathing.ftc.InvertedFTCCoordinates;
 import com.pedropathing.paths.PathConstraints;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import com.qualcomm.hardware.limelightvision.LLResult;
+import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -19,7 +22,6 @@ import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
@@ -61,6 +63,12 @@ public class CloseRed12Ball extends LinearOpMode {
     private PathChain scorePath0, scorePath1, scorePath2, scorePath3, moveScore,limelightPath,gatePath, pickupPath1, pickupPath2, pickupPath3;
     //endregion
 
+    //region PARA CALLBACKS
+    FakeParameticCallback current = null;
+
+    FakeParameticCallback scoreCall0, scoreCall1, scoreCall2, scoreCall3, pickupCall1, pickupCall2, pickupCall3;
+    //endregion
+
     //region HARDWARE DECLARATIONS
     private DcMotorEx fly1 = null;
     private DcMotorEx fly2 = null;
@@ -93,7 +101,6 @@ public class CloseRed12Ball extends LinearOpMode {
     //region VISION SYSTEM
     // AprilTag Configuration
     private boolean createLimelightPathOn = false;
-    private static final int DESIRED_TAG_ID = 20; //blue=20, red=24
     private AprilTagDetection desiredTag;
 
     // FTC Vision Portal
@@ -126,10 +133,28 @@ public class CloseRed12Ball extends LinearOpMode {
     double limelightWallPos;
     //endregion
 
-    //region FLYWHEEL SYSTEM
-    // Flywheel PID Constants
+    //region SHOOTING SYSTEM
     private FlywheelPIDController flywheel;
+    private double flySpeed = 0.0;
     private boolean shootReady = false;
+    private boolean isInitialized = false;
+
+    private static final double[] CAM_RANGE_SAMPLES =   {25, 31.8, 37, 39.2, 44.2,  52.6, 53.1, 56.9, 61.5, 65.6, 70.3, 73.4, 77.5, 84.3, 91.8, 100.4, 110.0, 118.4};
+    private static final double[] ODOM_RANGE_SAMPLES =  {45.2, 50.2, 55.3, 60.9, 66.5, 72.2, 76.7, 81.1, 86.3, 90.9, 96.2, 99.7, 104.3, 109.9, 118.1, 128.5, 139.6, 148.7};
+    private static final double[] FLY_SPEEDS =          {1004, 1016, 1041, 1071, 1115, 1132, 1143, 1151, 1212, 1236, 1244, 1252, 1253, 1259, 1273, 1358, 1387, 1421};
+    private static final double[] AIR_TIME =   {2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 3, 3.23, 3.5, 3.79, 4.27};  //seconds divide all by 4
+    private static final double[] HOOD_ANGLES = GlobalOffsets.globalHoodAngles;
+    private double smoothedRange = 0;
+    private static final double ALPHA = 0.8;
+    private boolean flyHoodLock = false;
+
+    // Auto Shooting State
+    private int autoShootNum = 3;
+    private double autoShootTime = 0;
+    private boolean autoShot = false;
+    private double lastTriggered = 0;
+    boolean isRapidFire = false;
+    double rapidFireStartTime = 0;
     //endregion
 
     //region HOOD SYSTEM
@@ -175,26 +200,38 @@ public class CloseRed12Ball extends LinearOpMode {
 
     //region TURRET SYSTEM
     // PIDF Constants
-    private double tuKp = 0.0050;
+    private double tuKp = 0.0058;
     private double tuKi = 0.0006;
-    private double tuKd = 0.00014;
-    private double tuKf = 0.02;
+    private double tuKd = 0.00015;
+    private double tuKf = 0.005;
+    private static final double tuKv = 0.0001;
 
+    private double lastTuTarget = 0.0;
+    private boolean lastTuTargetInit = false;
 
     // PID State
     private double tuIntegral = 0.0;
     private double tuLastError = 0.0;
-    private double tuIntegralLimit = 110.0;
+    private double tuIntegralLimit = 90.0;
+    private double tuLastD = 0.0;
 
     // Control Parameters
-    private final double tuToleranceDeg = 1.5;
+    private final double tuToleranceDeg = 0.85;
     private final double tuDeadband = 0.03;
-    private boolean turretAtTarget = false;
-    private static final double TURRET_LIMIT_DEG = 150.0;
 
     // Turret Position
-    private double tuPos = 0;
+    private double tuPos = 0.0;
+    private static final double TURRET_LIMIT_DEG = 150.0;
+    private double tuOffset = 0.0;
+    private boolean trackingOn = true;
     //endregion
+
+    //region VARIANT VARS (Alliance Specific)
+    private static final double goalX = 144;
+    private static final double goalY = 144;
+    //endregion
+    double shotTime = 0;
+    Vector velocity = new Vector(0,0);
     private final PathConstraints shootConstraints = new PathConstraints(0.99, 500, 0.65, 0.8);
     private final PathConstraints gateConstraints = new PathConstraints(0.99, 100, 0.9, 1);
 
@@ -202,8 +239,8 @@ public class CloseRed12Ball extends LinearOpMode {
         startPose = new Pose(144-19.9,123.5,Math.toRadians(180-54));
 
         //0 is control point, 1 is endpoint
-        pickup1[0] = new Pose(144-61.82,76.75,Math.toRadians(0));
-        pickup1[1] = new Pose(144-20.5,84,Math.toRadians(0));
+        pickup1[0] = new Pose(144-47.76,80.73,Math.toRadians(0));
+        pickup1[1] = new Pose(144-17.5,84,Math.toRadians(0));
 
         gatePose[0] = new Pose(144-29.82,77.24,Math.toRadians(90));
         gatePose[1] = new Pose(144-14.62,75.3,Math.toRadians(90));//14.62 75.3
@@ -215,10 +252,11 @@ public class CloseRed12Ball extends LinearOpMode {
 
         pickup3[0] = new Pose(144-76.64,30.5,Math.toRadians(0));
         pickup3[1] = new Pose(144-10,35.58,Math.toRadians(0));
+        pickup3[2] = new Pose(144-42.17,55.97,Math.toRadians(0));
 
         shoot1 = new Pose(144-57.5,98.4,Math.toRadians(0));
 //        shoot0 = new Pose(60,119,Math.toRadians(150));
-        shoot0 = new Pose(144-54.43,123.77,Math.toRadians(180-110));
+        shoot0 = new Pose(144-54.43,98.4,Math.toRadians(180-60));
         shoot3 = new Pose(144-61.32044198895028,116.9171270718232,Math.toRadians(0));
         movePoint = new Pose(144-31,69.6,Math.toRadians(90));
     }
@@ -228,23 +266,19 @@ public class CloseRed12Ball extends LinearOpMode {
                 .addPath(new BezierLine(startPose,shoot0))
                 .setConstraints(shootConstraints)
                 .setLinearHeadingInterpolation(startPose.getHeading(),shoot0.getHeading(), 0.5)
-                .addParametricCallback(0.75, ()-> {
-                    follower.setMaxPower(0.9);
-                } )
-//                .addParametricCallback(0.87,()-> shootReady=true)
-//                .setBrakingStrength(0.6)
                 .build();
+        scoreCall0 = new FakeParameticCallback(0.3, ()->shootReady=true,follower);
         pickupPath1 = follower.pathBuilder()
                 .addPath(new BezierCurve(shoot0,pickup1[0],pickup1[1]))
-                .setLinearHeadingInterpolation(shoot0.getHeading(),pickup1[1].getHeading(),0.2)
-                .addParametricCallback(0.42,()->{
-                    follower.setMaxPower(0.3);
-                    intakeOn = true;
-                    pidKp -= 0.002;
-                    pidKd += 0.0004;
-                })
+                .setLinearHeadingInterpolation(shoot0.getHeading(),pickup1[1].getHeading(),0.15)
                 .setTimeoutConstraint(500)
                 .build();
+        pickupCall1 = new FakeParameticCallback(0.42,()->{
+            follower.setMaxPower(0.3);
+            intakeOn = true;
+            pidKp -= 0.002;
+            pidKd += 0.0004;
+            },follower);
         pickupPath2 = follower.pathBuilder()
                 .addPath(new BezierCurve(shoot1,pickup2[0],pickup2[1]))
                 .setConstantHeadingInterpolation(shoot1.getHeading())
@@ -256,6 +290,12 @@ public class CloseRed12Ball extends LinearOpMode {
                 })
                 .setTimeoutConstraint(500)
                 .build();
+        pickupCall2 = new FakeParameticCallback(0.38,()->{
+            follower.setMaxPower(0.3);
+            intakeOn = true;
+            pidKp -= 0.002;
+            pidKd += 0.0004;
+        },follower);
         pickupPath3 = follower.pathBuilder()
                 .addPath(new BezierCurve(shoot1,pickup3[0],pickup3[1]))
                 .setConstantHeadingInterpolation(shoot1.getHeading())
@@ -267,6 +307,12 @@ public class CloseRed12Ball extends LinearOpMode {
                 })
                 .setTimeoutConstraint(500)
                 .build();
+        pickupCall3 = new FakeParameticCallback(0.45,()->{
+            follower.setMaxPower(0.3);
+            intakeOn = true;
+            pidKp -= 0.002;
+            pidKd += 0.0004;
+        },follower);
         gatePath = follower.pathBuilder()
                 .addPath(new BezierCurve(pickup1[1],gatePose[0],gatePose[1]))
                 .setConstraints(gateConstraints)
@@ -276,29 +322,23 @@ public class CloseRed12Ball extends LinearOpMode {
                 .addPath(new BezierLine(gatePose[1],shoot1))
                 .setConstraints(shootConstraints)
                 .setLinearHeadingInterpolation(gatePose[1].getHeading(),shoot1.getHeading())
-//                .addParametricCallback(0.983,()-> shootReady=true)
-                .addParametricCallback(0.984,()-> shootReady=true)
                 .build();
+        scoreCall1 = new FakeParameticCallback(0.984, ()->shootReady=true,follower);
         scorePath2 = follower.pathBuilder()
                 .addPath(new BezierCurve(pickup2[1],pickup2[2],shoot1))
                 .setConstraints(shootConstraints)
                 .setTranslationalConstraint(1.5)
                 .setConstantHeadingInterpolation(shoot1.getHeading())
-//                .addParametricCallback(0.986,()-> shootReady=true)
-                .addParametricCallback(0.99,()-> shootReady=true)
                 .build();
+        scoreCall2 = new FakeParameticCallback(0.99, ()->shootReady=true,follower);
         scorePath3 = follower.pathBuilder()
-                .addPath(new BezierLine(pickup3[1],shoot3))
+                .addPath(new BezierCurve(pickup3[1],pickup3[2],shoot3))
                 .setConstraints(shootConstraints)
                 .setBrakingStrength(0.5)
                 .setTranslationalConstraint(1.5)
                 .setConstantHeadingInterpolation(shoot3.getHeading())
-                .addParametricCallback(0.8, ()-> {
-                            follower.setMaxPower(0.85);
-                        }
-                )
-                .addParametricCallback(0.99,()-> shootReady=true)
                 .build();
+        scoreCall3 = new FakeParameticCallback(0.99, ()->shootReady=true,follower);
         moveScore = follower.pathBuilder()
                 .addPath(new BezierLine(shoot3,movePoint))
                 .setLinearHeadingInterpolation(shoot3.getHeading(), movePoint.getHeading())
@@ -316,9 +356,9 @@ public class CloseRed12Ball extends LinearOpMode {
 
         int shootingState = 0;
         boolean running = true;
-        int flySpeed = 1113;
-        int shoot0change = 5;
+        int shoot0change = -100;
         double spindexerSavedPos = 0;
+        boolean flyAtSpeed = false;
 
         //Ball tracking
         double ballTx=0;
@@ -380,13 +420,10 @@ public class CloseRed12Ball extends LinearOpMode {
 
         //region CAMERA INIT
         //LIMELIGHT
-//        limelight = hardwareMap.get(Limelight3A.class, "limelight");
-//        limelight.setPollRateHz(100);
-//        limelight.start();
-//        limelight.pipelineSwitch(1);
-
-        initAprilTag();
-        setManualExposure(4, 200);
+        limelight = hardwareMap.get(Limelight3A.class, "limelight");
+        limelight.setPollRateHz(100);
+        limelight.start();
+        limelight.pipelineSwitch(0);
         //endregion
 
         //region INITIALIZE PEDRO
@@ -408,7 +445,7 @@ public class CloseRed12Ball extends LinearOpMode {
         limelightWallPos = pickup1[1].getX();
         //endregion
         hoodOffset=0;
-        tuPos = -95;
+//        tuPos = -95;
         flySpeed -= shoot0change;
 
         //WAIT
@@ -419,6 +456,7 @@ public class CloseRed12Ball extends LinearOpMode {
         while(opModeIsActive()){
             follower.update();
             StateVars.lastPose = follower.getPose();
+            velocity = follower.getVelocity();
 
             //region IMPORTANT VARS
             //needed at beginning of loop, don't change location
@@ -431,8 +469,14 @@ public class CloseRed12Ball extends LinearOpMode {
             pidLastTimeMs = nowMs;
 
             if (dtSec <= 0.0) dtSec = 1.0 / 50.0;
+            //endregion
 
-            double turnInput = -gamepad1.right_stick_x;
+            //region CHECK PCALLBACKS
+            if(current!=null){
+                if(current.check()){
+                    current = null;
+                }
+            }
             //endregion
 
             //region PATH STUFF
@@ -441,17 +485,16 @@ public class CloseRed12Ball extends LinearOpMode {
                     //region CYCLE ZERO (READ MOTIF)
                     case 0:
                         if(subState==0){
-                            follower.followPath(scorePath0,true);
+                            followPathPCallback(scorePath0,true,scoreCall0);
                             motifOn = true;
+                            autoShootOn = true;
+                            shootingState=0;
 
                             subState++;
                         }
                         //READ MOTIF is subState 1
                         else if(subState==2){
-                            tuPos = 111;
-                            autoShootOn = true;
-                            shootingState=0;
-                            shootReady = true;
+//                            tuPos = 111;
 
                             subState++;
                         }
@@ -462,8 +505,8 @@ public class CloseRed12Ball extends LinearOpMode {
                     //region CYCLE ONE
                     case 1:
                         if(subState==0){
-                            follower.followPath(pickupPath1,false);
-                            tuPos = 0;
+                            followPathPCallback(pickupPath1,false,pickupCall1);
+//                            tuPos = 0;
 
                             flySpeed += shoot0change;
 
@@ -473,7 +516,7 @@ public class CloseRed12Ball extends LinearOpMode {
                         else if(subState==2){
                             follower.setMaxPower(1);
                             follower.followPath(gatePath,false);
-                            tuPos = -75;
+//                            tuPos = -75;
                             gateCutoff = true;
 
                             timeout = runtime.milliseconds()+1400;
@@ -481,7 +524,7 @@ public class CloseRed12Ball extends LinearOpMode {
                         }
                         else if(subState==3){
                             gateCutoff = false;
-                            follower.followPath(scorePath1,true);
+                            followPathPCallback(scorePath1,true,scoreCall1);
                             autoShootOn = true;
                             shootingState=0;
 
@@ -494,16 +537,16 @@ public class CloseRed12Ball extends LinearOpMode {
                     //region CYCLE TWO
                     case 2:
                         if(subState==0){
-                            follower.followPath(pickupPath2,false);
+                            followPathPCallback(pickupPath2,false,pickupCall2);
 
                             subState++;
                         }
                         //INTAKE is subState 1
                         else if(subState==2){
                             follower.setMaxPower(1);
-                            follower.followPath(scorePath2,true);
-                            tuPos = -74;
-                            flySpeed -= 15;
+                            followPathPCallback(scorePath2,true,scoreCall2);
+//                            tuPos = -74;
+//                            flySpeed -= 15;
                             autoShootOn = true;
                             shootingState=0;
 
@@ -516,16 +559,16 @@ public class CloseRed12Ball extends LinearOpMode {
                     //region CYCLE THREE
                     case 3:
                         if(subState==0){
-                            follower.followPath(pickupPath3,false);
-                            tuPos = -33;
-                            flySpeed = 1105;
+                            followPathPCallback(pickupPath3,false,pickupCall3);
+//                            tuPos = -33;
+//                            flySpeed = 1105;
 
                             subState++;
                         }
                         //INTAKE is subState 1
                         else if(subState==2){
                             follower.setMaxPower(1);
-                            follower.followPath(scorePath3,true);
+                            followPathPCallback(scorePath3,true,scoreCall3);
                             autoShootOn = true;
                             shootingState=0;
 
@@ -599,7 +642,7 @@ public class CloseRed12Ball extends LinearOpMode {
 
             //region READ MOTIF
             if(motifOn&&timeout<runtime.milliseconds()){
-                int april = readMotif();
+                int april = readMotifLimelight();
                 if(april!=-1) {
                     if (april == 21) {
                         greenPos = 0;
@@ -691,17 +734,17 @@ public class CloseRed12Ball extends LinearOpMode {
             //prevent ball not firing
 //            if(autoShootOn&&shootingState==1&&spindexerAtTarget) transOn = true;
 
-            if(autoShootOn&&runtime.milliseconds()>timeout&&(shootReady||!follower.isBusy())){
+            if(autoShootOn&&runtime.milliseconds()>timeout&&(shootReady||!follower.isBusy())&&flyAtSpeed){
                 intake.setPower(0);
 //                double avgSpeed = (fly1.getVelocity() + fly2.getVelocity()) / 2.0;
 //                if(shootingState==1&&spindexerAtTarget&&avgSpeed > flySpeed * 0.94 && avgSpeed < flySpeed * 1.08){
                 if(shootingState==1){
-                    timeout = runtime.milliseconds()+500;
+//                    timeout = runtime.milliseconds()+500;
                     shootingState++;
                 }
                 else if(shootingState==2){
                     transOn = true;
-                    if(turretAtTarget){
+                    if(true){
                         spin1.setPower(0.85);
                         spin2.setPower(0.85);
                         cutoffSpinPID = true;
@@ -724,7 +767,55 @@ public class CloseRed12Ball extends LinearOpMode {
             }
             //endregion
 
+            //region AUTO FLYSPEED/ANGLE
+            //position and range
+            double dx = goalX - follower.getPose().getX();
+            double dy = goalY - follower.getPose().getY();
+            double odomRange = Math.hypot(dx, dy);
+
+            //velocity
+            double velX = velocity.getXComponent();
+            double velY = velocity.getYComponent();
+
+            //finds the unit vector in the direction of the goal
+            double unitVectorX = dx / odomRange;
+            double unitVectorY = dy / odomRange;
+
+            double totalSpeed = velocity.getMagnitude();
+
+            //gives you the velocity in the direction of the goal (radial velocity)
+            double radVel = (velX * unitVectorX) + (velY * unitVectorY);
+
+            double adjustedRange = odomRange;
+            if (Math.abs(radVel) > 5.0) { // threshold of 5 inches/second
+                shotTime = interpolate(odomRange, ODOM_RANGE_SAMPLES, AIR_TIME) / 4.0;
+                double radialDisplacement = radVel * shotTime;
+                adjustedRange = odomRange - radialDisplacement;
+            }
+
+            //smooth range so values rnt erratic
+            if (!isInitialized) {
+                smoothedRange = adjustedRange;
+                isInitialized = true;
+            } else {
+                smoothedRange = smooth(adjustedRange, smoothedRange);
+            }
+
+            // interpolate between measured values
+            if (!flyHoodLock) {
+                flySpeed = interpolate(smoothedRange, ODOM_RANGE_SAMPLES, FLY_SPEEDS);
+                hoodAngle = interpolate(smoothedRange, ODOM_RANGE_SAMPLES, HOOD_ANGLES);
+                hoodAngle = Math.max(hoodAngle, -140); //clamp to prevent it going too high
+            }
+
+            telemetry.addData("Odom Range", "%.1f inches", odomRange);
+            telemetry.addData("Radial Velocity", "%.1f in/s", radVel);
+            telemetry.addData("Adjusted Range", "%.1f inches", smoothedRange);
+            //endregion
+
             //region FLYWHEEL
+            //velocity
+
             double voltage = hardwareMap.voltageSensor.iterator().next().getVoltage();
 //            flySpeed = 0;
             flywheel.updateFlywheelPID(
@@ -735,15 +826,50 @@ public class CloseRed12Ball extends LinearOpMode {
 
             double avgSpeed = (fly1.getVelocity() + fly2.getVelocity()) / 2.0;
 
+            // check if flywheel is at speed
+            flyAtSpeed = Math.abs(flySpeed - flywheel.lastMeasuredVelocity) < 100;
+
 //            if(avgSpeed >= flySpeed){
 //                flyKd = 3;
 //            }
 //            tempServo.setPosition(avgSpeed/(flySpeed*2));
             //endregion
 
-            //region TURRET
-//            tuPos = applyTurretLimitWithWrap(tuPos);
-            updateTurretPID(-tuPos + 7, dtSec);
+            //region GOAL TRACKING
+            if (trackingOn) {
+                tuPos = calcTuTarget(0, 0,
+                        follower.getPose().getX(),
+                        follower.getPose().getY(),
+                        follower.getPose().getHeading()
+                )
+                        + tuOffset;
+            }
+            //endregion
+
+            //region TURRET CONTROl
+            //needs to stay right above the final calculations, otherwise will get overwritten
+            double rawTurretTargetDeg = tuPos;
+            //wraps position
+            double safeTurretTargetDeg = applyTurretLimitWithWrap(rawTurretTargetDeg);
+            tuPos = safeTurretTargetDeg;
+
+            double targetVelDegPerSec = 0.0;
+
+            //feedforward
+            if (!lastTuTargetInit) {
+                lastTuTarget = safeTurretTargetDeg;
+                lastTuTargetInit = true;
+            } else if (trackingOn) {
+                double dTarget = normalizeDeg180(safeTurretTargetDeg - lastTuTarget);
+                targetVelDegPerSec = dTarget / Math.max(dtSec, 1e-3);
+                lastTuTarget = safeTurretTargetDeg;
+            } else {
+                // no FF when not tracking
+                targetVelDegPerSec = 0.0;
+                lastTuTarget = safeTurretTargetDeg;
+            }
+
+            updateTurretPIDWithTargetFF(tuPos, targetVelDegPerSec, dtSec);
             //endregion
 
             //region TRANSFER
@@ -771,6 +897,7 @@ public class CloseRed12Ball extends LinearOpMode {
             telemetry.addData("shooting state",shootingState);
             telemetry.addData("x", follower.getPose().getX());
             telemetry.addData("y", follower.getPose().getY());
+            telemetry.addData("tuPos",tuPos);
             telemetry.addData("heading", follower.getPose().getHeading());
             telemetry.addData("Green Position",greenPos);
             telemetry.addData("actual fly speed","Wheel 1: %.1f Wheel 2: %.1f", fly1.getVelocity(), fly2.getVelocity());
@@ -782,6 +909,68 @@ public class CloseRed12Ball extends LinearOpMode {
     }
 
     //region HELPER METHODS
+    //region TURRET AND LOCALIZATION
+
+    private double calcTuTarget(double velX, double velY, double robotX, double robotY, double robotHeadingRad) {
+        double dx = goalX - robotX;
+        double dy = goalY - robotY;
+
+        double futureRobotX = robotX + (velX * shotTime);
+        double futureRobotY = robotY + (velY * shotTime);
+
+        double futureDx = goalX - futureRobotX;
+        double futureDy = goalY - futureRobotY;
+
+        double headingToGoal = Math.toDegrees(Math.atan2(futureDy, futureDx));
+        double robotHeading  = Math.toDegrees(robotHeadingRad);
+
+        //actual turret angle needed
+        double turretAngleReal = headingToGoal - robotHeading;
+
+        //converts to angle servos need to turn to to achieve turret angle
+        double servoAngle = GlobalOffsets.turretZeroDeg + (2 * turretAngleReal);
+
+        return normalizeDeg180(servoAngle);
+    }
+
+    //TODO check ff and calculations for this, make as fast as possible
+    private void updateTurretPIDWithTargetFF(double targetAngle, double targetVelDegPerSec, double dt) {
+        double angle = getTurretAngleDeg();
+
+        double error = -angleError(targetAngle, angle);
+
+        //if (Math.abs(error) > 8.0) tuIntegral = 0;
+
+        tuIntegral += error * dt;
+        tuIntegral = clamp(tuIntegral, -tuIntegralLimit, tuIntegralLimit);
+
+        double rawD = (error - tuLastError) / Math.max(dt, 1e-6);
+        double d = 0.5 * tuLastD + 0.5 * rawD;
+        tuLastD = d;
+
+        double out = tuKp * error + tuKi * tuIntegral + tuKd * d;
+
+        // stiction FF
+        if (Math.abs(error) > tuToleranceDeg) out += tuKf * Math.signum(error);
+
+        // target-rate FF (helps match d(turret)/d(target))
+        out += tuKv * targetVelDegPerSec;
+
+        out = Range.clip(out, -1.0, 1.0);
+        if (Math.abs(out) < tuDeadband) out = 0.0;
+
+        turret1.setPower(out);
+        turret2.setPower(out);
+
+        tuLastError = error;
+
+    }
+
+    private double getTurretAngleDeg() {
+        return normalizeDeg180(mapVoltageToAngle360(turretEncoder.getVoltage(), 0.01, 3.29));
+    }
+
+    //TODO make this wrap better
     private double applyTurretLimitWithWrap(double desiredDeg) {
         // Always reason in [-180, 180]
         desiredDeg = normalizeDeg180(desiredDeg);
@@ -798,13 +987,55 @@ public class CloseRed12Ball extends LinearOpMode {
         // Hard safety clamp to keep off the wires
         return clamp(candidateDeg, -TURRET_LIMIT_DEG, TURRET_LIMIT_DEG);
     }
+    //endregion
+
+    //region GENERAL MATH METHODS
+    private double clamp(double v, double lo, double hi) {
+        return Math.max(lo, Math.min(hi, v));
+    }
+    private double mapVoltageToAngle360(double v, double vMin, double vMax) {
+        double angle = 360.0 * (v - vMin) / (vMax - vMin);
+        angle = (angle + 360) % 360;
+        return angle;
+    }
+
+    // Compute shortest signed difference between two angles
+    private double angleError(double target, double current) {
+        double error = target - current;
+        if (error > 180) error -= 360;
+        if (error < -180) error += 360;
+        return error;
+    }
+
+    // Linear interpolation helper method
+    private double interpolate(double x, double[] xValues, double[] yValues) {
+        // Clamp to table bounds
+        if (x <= xValues[0]) return yValues[0];
+        if (x >= xValues[xValues.length - 1]) return yValues[yValues.length - 1];
+
+        // Find surrounding points
+        for (int i = 0; i < xValues.length - 1; i++) {
+            if (x >= xValues[i] && x <= xValues[i + 1]) {
+                // Linear interpolation formula
+                double t = (x - xValues[i]) / (xValues[i + 1] - xValues[i]);
+                return yValues[i] + t * (yValues[i + 1] - yValues[i]);
+            }
+        }
+        return yValues[yValues.length - 1];
+    }
+
+    private double smooth(double newValue, double previousValue) {
+        return ALPHA * newValue + (1 - ALPHA) * previousValue;
+    }
+    //endregion
+    private void followPathPCallback(PathChain path, boolean holdEnd, FakeParameticCallback pCallback){
+        follower.followPath(path,holdEnd);
+        current = pCallback;
+    }
     private double normalizeDeg180(double deg) {
         deg = (deg + 180) % 360;
         if (deg < 0) deg += 360;
         return deg - 180;
-    }
-    private double getTurretAngleDeg() {
-        return normalizeDeg180(mapVoltageToAngle360(turretEncoder.getVoltage(), 0.01, 3.29));
     }
     private char getRealColor(){
         char c1 = getDetectedColor1(color1);
@@ -1002,66 +1233,22 @@ public class CloseRed12Ball extends LinearOpMode {
     }
     //endregion
 
-    private void updateTurretPID(double targetAngle, double dt) {
-        // read angles 0..360
-        double angle = mapVoltageToAngle360(turretEncoder.getVoltage(), 0.01, 3.29);
-
-        //raw error
-        double rawError = -angleError(targetAngle, angle);
-
-        //adds a constant term if it's in a certain direction.
-        // we either do this or we change the pid values for each direction.
-        // gonna try and see if simpler method works tho
-        double compensatedTarget = targetAngle;
-        if (rawError < 0) { // moving CCW
-            compensatedTarget = (targetAngle) % 360.0;
+    private int readMotifLimelight(){
+        LLResult result = limelight.getLatestResult();
+        int numTags=0;
+        int lastTagNum = 0;
+        if (result != null && result.isValid()) {
+            List <LLResultTypes.FiducialResult> tags = result.getFiducialResults();
+            for (LLResultTypes.FiducialResult detection : tags) {
+                if (detection.getFiducialId() == 21||detection.getFiducialId() == 22||detection.getFiducialId() == 23) {
+                    numTags++;
+                    lastTagNum=detection.getFiducialId();
+                }
+            }
         }
-        // compute shortest signed error [-180,180]
-        double error = -angleError(compensatedTarget, angle);
-
-        // integral with anti-windup
-        tuIntegral += error * dt;
-        tuIntegral = clamp(tuIntegral, -tuIntegralLimit, tuIntegralLimit);
-
-        // derivative
-        double d = (error - tuLastError) / Math.max(dt, 1e-6);
-
-        // PIDF output (interpreted as servo power)
-        double out = tuKp * error + tuKi * tuIntegral + tuKd * d;
-
-        // small directional feedforward to overcome stiction when error significant
-        if (Math.abs(error) > 1.0) out += tuKf * Math.signum(error);
-
-        // clamp to [-1,1] and apply deadband
-        out = Range.clip(out, -1.0, 1.0);
-        if (Math.abs(out) < tuDeadband) out = 0.0;
-//target = -100ish angle = 95ish
-        if(targetAngle<-80&&(angle>80&&angle<200)){
-            out = 1;
-            telemetry.addData("Turret pls dont cut wires POWER",out);
-        }
-
-        // if within tolerance, zero outputs and decay integrator to avoid bumping
-        if (Math.abs(error) <= tuToleranceDeg) {
-            out = 0.0;
-            tuIntegral *= 0.2;
-        }
-
-        //to know its set
-        turretAtTarget = (Math.abs(error) <= tuToleranceDeg + 5);
-
-        // apply powers (flip one if your servo is mirrored - change sign if needed)
-        turret1.setPower(out);
-        turret2.setPower(out);
-
-        // store errors for next derivative calculation
-        tuLastError = error;
-
-        // telemetry for PID (keeps concise, add more if you want)
-        telemetry.addData("Turret Target", "%.1f°", targetAngle);
-        telemetry.addData("Turret Angle", "%.1f°", angle);
+        if(numTags==1) return lastTagNum;
+        return -1;
     }
-
     private int readMotif(){
         List<AprilTagDetection> currentDetections = aprilTag.getDetections();
         int numTags=0;
@@ -1076,22 +1263,6 @@ public class CloseRed12Ball extends LinearOpMode {
         }
         if(numTags==1) return lastTagNum;
         return -1;
-    }
-    private double clamp(double v, double lo, double hi) {
-        return Math.max(lo, Math.min(hi, v));
-    }
-    private double mapVoltageToAngle360(double v, double vMin, double vMax) {
-        double angle = 360.0 * (v - vMin) / (vMax - vMin);
-        angle = (angle + 360) % 360;
-        return angle;
-    }
-
-    // Compute shortest signed difference between two angles
-    private double angleError(double target, double current) {
-        double error = target - current;
-        if (error > 180) error -= 360;
-        if (error < -180) error += 360;
-        return error;
     }
 
     private void pathToBall(double tx,double ty){

@@ -3,12 +3,12 @@ package org.firstinspires.ftc.teamcode.pedroPathing;
 import android.util.Size;
 
 import com.pedropathing.follower.Follower;
-import com.pedropathing.ftc.InvertedFTCCoordinates;
-import com.pedropathing.ftc.PoseConverter;
 import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.PathChain;
+import com.pedropathing.ftc.PoseConverter;
+import com.pedropathing.ftc.InvertedFTCCoordinates;
 import com.pedropathing.paths.PathConstraints;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
@@ -34,9 +34,9 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.robotcore.external.navigation.Position;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
+import org.firstinspires.ftc.teamcode.subsystems.FlywheelPIDController;
 import org.firstinspires.ftc.teamcode.GlobalOffsets;
 import org.firstinspires.ftc.teamcode.StateVars;
-import org.firstinspires.ftc.teamcode.subsystems.FlywheelPIDController;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagGameDatabase;
@@ -58,6 +58,12 @@ public class FarBlue12Ball extends LinearOpMode {
     private Pose[] pickup3 = new Pose[3];
     private Pose[] gatePose = new Pose[2];
     private PathChain scorePath0, scorePath1, scorePath2, scorePath3, moveScore,limelightPath,gatePath, pickupPath1, pickupPath2, pickupPath3;
+    //endregion
+
+    //region PARA CALLBACKS
+    FakeParameticCallback current = null;
+
+    FakeParameticCallback pickupCall1, pickupCall2, pickupCall3, scoreCall0, scoreCall1, scoreCall2, scoreCall3;
     //endregion
 
     //region HARDWARE DECLARATIONS
@@ -207,8 +213,10 @@ public class FarBlue12Ball extends LinearOpMode {
         pickup2[0] = new Pose(64.0,68.6,Math.toRadians(180));
         pickup2[1] = new Pose(10,60.55,Math.toRadians(180));
 
-        pickup3[0] = new Pose(58.25,7.76,Math.toRadians(180));
-        pickup3[1] = new Pose(10.4,8.53,Math.toRadians(180));
+//        pickup3[0] = new Pose(30.67,23.14,Math.toRadians(180));
+//        pickup3[1] = new Pose(10.4,8.53,Math.toRadians(256));
+        pickup3[0] = new Pose(9.45,50.71,Math.toRadians(180));
+        pickup3[1] = new Pose(0.9,4,Math.toRadians(270));
 
         shoot0 = new Pose(62.5,26.5,Math.toRadians(180));
         shoot1 = new Pose(58,19,Math.toRadians(180));
@@ -220,69 +228,59 @@ public class FarBlue12Ball extends LinearOpMode {
                 .addPath(new BezierLine(startPose,shoot0))
                 .setConstraints(shootConstraints)
                 .setConstantHeadingInterpolation(shoot0.getHeading())
-                .addParametricCallback(0.87,()-> {
-                    shootReady=true;
-                })
                 .build();
+        scoreCall0 = new FakeParameticCallback(0.8,()-> shootReady=true,follower);
         pickupPath1 = follower.pathBuilder()
                 .addPath(new BezierCurve(shoot0,pickup1[0],pickup1[1]))
                 .setConstantHeadingInterpolation(shoot0.getHeading())
-                .addParametricCallback(0.2,()->{
-                    follower.setMaxPower(0.33);
-                    intakeOn = true;
-                    pidKp -= 0.0015;
-                })
                 .setTimeoutConstraint(500)
                 .build();
+        pickupCall1 = new FakeParameticCallback(0.2,()->{
+            follower.setMaxPower(0.33);
+            intakeOn = true;
+            pidKp -= 0.0015;
+            },follower);
         pickupPath2 = follower.pathBuilder()
                 .addPath(new BezierCurve(shoot1,pickup2[0],pickup2[1]))
                 .setConstantHeadingInterpolation(shoot1.getHeading())
-                .addParametricCallback(0.35,()->{
-                    follower.setMaxPower(0.36);
-                    intakeOn = true;
-                    pidKp -= 0.0015;
-                })
                 .setTimeoutConstraint(500)
                 .build();
+        pickupCall2 = new FakeParameticCallback(0.35,()->{
+            follower.setMaxPower(0.36);
+            intakeOn = true;
+            pidKp -= 0.0015;
+            },follower);
         pickupPath3 = follower.pathBuilder()
                 .addPath(new BezierCurve(shoot1,pickup3[0],pickup3[1]))
-                .setConstantHeadingInterpolation(shoot1.getHeading())
-                .addParametricCallback(0.33,()->{
-                    follower.setMaxPower(0.26);
-                    intakeOn = true;
-                    pidKp -= 0.0015;
-                })
+                .setLinearHeadingInterpolation(shoot1.getHeading(),pickup3[1].getHeading(),0.5)
                 .setTimeoutConstraint(500)
                 .build();
+        pickupCall3 = new FakeParameticCallback(0.33,()->{
+            follower.setMaxPower(0.75);
+            intakeOn = true;
+            pidKp -= 0.0015;
+        },follower);
         scorePath1 = follower.pathBuilder()
                 .addPath(new BezierLine(pickup1[1],shoot1))
                 .setConstraints(shootConstraints)
                 .setConstantHeadingInterpolation(shoot1.getHeading())
-                .addParametricCallback(0.5,()-> {
-                    follower.setMaxPower(0.7);
-                })
-                .addParametricCallback(0.983,()-> shootReady=true)
                 .build();
+        scoreCall1 = new FakeParameticCallback(0.9,()-> shootReady=true,follower);
         scorePath2 = follower.pathBuilder()
                 .addPath(new BezierLine(pickup2[1],shoot1))
                 .setConstraints(shootConstraints)
                 .setTranslationalConstraint(1.5)
                 .setConstantHeadingInterpolation(shoot1.getHeading())
-                .addParametricCallback(0.5,()-> {
-                    follower.setMaxPower(0.7);
-                })
-                .addParametricCallback(0.99,()-> shootReady=true)
                 .build();
+        scoreCall2 = new FakeParameticCallback(0.9,()-> shootReady=true,follower);
         scorePath3 = follower.pathBuilder()
                 .addPath(new BezierLine(pickup3[1],shoot1))
                 .setConstraints(shootConstraints)
                 .setTranslationalConstraint(1.5)
-                .setConstantHeadingInterpolation(shoot1.getHeading())
-                .addParametricCallback(0.4,()-> {
-                    follower.setMaxPower(0.5);
-                })
-                .addParametricCallback(0.99,()-> shootReady=true)
+//                .setConstantHeadingInterpolation(shoot1.getHeading())
+                .setLinearHeadingInterpolation(pickup3[1].getHeading(),shoot1.getHeading())
                 .build();
+        scoreCall3 = new FakeParameticCallback(0.9,()-> shootReady=true,follower);
         moveScore = follower.pathBuilder()
                 .addPath(new BezierLine(shoot1,movePoint))
                 .setLinearHeadingInterpolation(shoot1.getHeading(), movePoint.getHeading())
@@ -422,6 +420,14 @@ public class FarBlue12Ball extends LinearOpMode {
             Pose robotPose = follower.getPose();
             //endregion
 
+            //region CHECK PCALLBACKS
+            if(current!=null){
+                if(current.check()){
+                    current = null;
+                }
+            }
+            //endregion
+
             if (runtime.milliseconds() > 27000) {
                 pathState = 4;
             }
@@ -431,7 +437,7 @@ public class FarBlue12Ball extends LinearOpMode {
                     //region CYCLE ZERO (READ MOTIF)
                     case 0:
                         if(subState==0){
-                            follower.followPath(scorePath0,true);
+                            followPathPCallback(scorePath0,true,scoreCall0);
                             motifOn = true;
 
                             timeout = runtime.milliseconds()+2000;
@@ -452,7 +458,7 @@ public class FarBlue12Ball extends LinearOpMode {
                     //region CYCLE ONE
                     case 1:
                         if(subState==0){
-                            follower.followPath(pickupPath1,false);
+                            followPathPCallback(pickupPath1,false,pickupCall1);
 
                             flySpeed += shoot0change;
                             subState++;
@@ -460,7 +466,7 @@ public class FarBlue12Ball extends LinearOpMode {
                         //INTAKE is subState 1
                         else if(subState==2){
                             follower.setMaxPower(1);
-                            follower.followPath(scorePath1,true);
+                            followPathPCallback(scorePath1,true,scoreCall1);
                             tuPos = -133;
                             autoShootOn = true;
                             shootingState=0;
@@ -474,14 +480,14 @@ public class FarBlue12Ball extends LinearOpMode {
                     //region CYCLE TWO
                     case 2:
                         if(subState==0){
-                            follower.followPath(pickupPath2,false);
+                            followPathPCallback(pickupPath2,false,pickupCall2);
 
                             subState++;
                         }
                         //INTAKE is subState 1
                         else if(subState==2){
                             follower.setMaxPower(1);
-                            follower.followPath(scorePath2,true);
+                            followPathPCallback(scorePath2,true,scoreCall2);
                             tuPos -= 1.2;
                             autoShootOn = true;
                             shootingState=0;
@@ -495,7 +501,7 @@ public class FarBlue12Ball extends LinearOpMode {
                     //region CYCLE THREE
                     case 3:
                         if(subState==0){
-                            follower.followPath(pickupPath3,false);
+                            followPathPCallback(pickupPath3,false,pickupCall3);
 
                             subState++;
                         }
@@ -503,7 +509,7 @@ public class FarBlue12Ball extends LinearOpMode {
                         else if(subState==2){
                             timeout = runtime.milliseconds() + 500;
                             follower.setMaxPower(1);
-                            follower.followPath(scorePath3,true);
+                            followPathPCallback(scorePath3,true,scoreCall3);
                             autoShootOn = true;
                             shootingState=0;
 
@@ -707,6 +713,7 @@ public class FarBlue12Ball extends LinearOpMode {
 
             //region FLYWHEEL
             double voltage = hardwareMap.voltageSensor.iterator().next().getVoltage();
+            flySpeed = 0;
             flywheel.updateFlywheelPID(
                     flySpeed,
                     dtSec,
@@ -761,6 +768,10 @@ public class FarBlue12Ball extends LinearOpMode {
     }
 
     //region HELPER METHODS
+    private void followPathPCallback(PathChain path, boolean holdEnd, FakeParameticCallback pCallback){
+        follower.followPath(path,holdEnd);
+        current = pCallback;
+    }
     private char getRealColor(){
         char c1 = getDetectedColor1(color1);
         char c2 = getDetectedColor2(color2);

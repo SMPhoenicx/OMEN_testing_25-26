@@ -29,6 +29,8 @@
 
 package org.firstinspires.ftc.teamcode;
 
+import static java.lang.Math.round;
+
 import android.util.Size;
 
 import com.pedropathing.follower.Follower;
@@ -154,7 +156,7 @@ public class MainBlueOpMode extends LinearOpMode
 
     // Turret Position
     private double tuPos = 0.0;
-    private static final double turretZeroDeg = 9.2;
+    private static final double turretZeroDeg = 10.2;
     private static final double TURRET_LIMIT_DEG = 150.0;
     private double tuOffset = 0.0;
     //endregion
@@ -233,7 +235,6 @@ public class MainBlueOpMode extends LinearOpMode
         boolean localizeApril = true;
 
         // Color Sorting
-        int classifiedBalls = 0;
         //endregion
 
         //region HARDWARE INITIALIZATION
@@ -644,9 +645,9 @@ public class MainBlueOpMode extends LinearOpMode
             }
 
             //Pattern "number of balls classified" thing wtvr
-            if(gamepad2.squareWasPressed()) classifiedBalls = 0;
-            if(gamepad2.crossWasPressed()) classifiedBalls = 1;
-            if(gamepad2.circleWasPressed()) classifiedBalls = 2;
+            if(gamepad2.squareWasPressed()) spindexer.classifiedBalls = 0;
+            if(gamepad2.crossWasPressed()) spindexer.classifiedBalls = 1;
+            if(gamepad2.circleWasPressed()) spindexer.classifiedBalls = 2;
 
             //Pattern sorting
             if (gamepad1.dpadDownWasPressed()) {
@@ -704,10 +705,10 @@ public class MainBlueOpMode extends LinearOpMode
 
             //region TURRET CONTROl
             if (gamepad2.dpadLeftWasPressed()) {
-                tuOffset -= 5;
+                tuOffset -= 7;
             }
             if (gamepad2.dpadRightWasPressed()) {
-                tuOffset += 5;
+                tuOffset += 7;
             }
 
             //needs to stay right above the final calculations, otherwise will get overwritten
