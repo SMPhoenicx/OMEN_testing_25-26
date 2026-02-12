@@ -4,7 +4,7 @@ public class GlobalOffsets {
     public static double spindexerOffset = 30;
     public static double colorSensorDist1 = 3.3;
     public static double colorSensorDist2 = 4.6;
-    public static double turretZeroDeg = 10.2;
+    public static double turretZeroDeg = 3.6;
     public static double[] globalHoodAngles = {
             292.1, // Old 114.6
             254.9, // Old 77.4
