@@ -85,7 +85,7 @@ public class CloseBlue12Ball extends LinearOpMode {
     private Servo hood = null;
     private CRServo turret1 = null;
     private CRServo turret2 = null;
-    //TODO temp servo for tuning flywheel pid
+    private Servo llservo = null;
 //    private Servo tempServo = null;
 
     // ENCODERS
@@ -231,8 +231,7 @@ public class CloseBlue12Ball extends LinearOpMode {
     //region VARIANT VARS (Alliance Specific)
     private static final double goalX = 0;
     private static final double goalY = 144;
-    private static double turretClock = 1;//1 red, -1 blue
-
+    private static double turretClock = -1;//1 red, -1 blue
     //endregion
     double shotTime = 0;
     Vector velocity = new Vector(0,0);
@@ -241,7 +240,7 @@ public class CloseBlue12Ball extends LinearOpMode {
 
     public void createPoses(){
 //        startPose = new Pose(144-19.9,123.5,Math.toRadians(180-54));
-        startPose = new Pose(19.9,123.5,Math.toRadians(54));
+        startPose = new Pose(144-124.1,123.5,Math.toRadians(54));
 
         //0 is control point, 1 is endpoint
         pickup1[0] = new Pose(47.76,80.73,Math.toRadians(180));
@@ -261,7 +260,7 @@ public class CloseBlue12Ball extends LinearOpMode {
 
         shoot1 = new Pose(57.5,98.4,Math.toRadians(180));
 //        shoot0 = new Pose(60,119,Math.toRadians(150));
-        shoot0 = new Pose(54.43,98.4,Math.toRadians(60));
+        shoot0 = new Pose(54.43,98.4,Math.toRadians(70));
         shoot3 = new Pose(61.32044198895028,116.9171270718232,Math.toRadians(180));
         movePoint = new Pose(31,69.6,Math.toRadians(90));
     }
@@ -281,42 +280,24 @@ public class CloseBlue12Ball extends LinearOpMode {
         pickupCall1 = new FakeParameticCallback(0.26,()->{
             follower.setMaxPower(0.3);
             intakeOn = true;
-            pidKp -= 0.002;
-            pidKd += 0.0004;
         },follower);
         pickupPath2 = follower.pathBuilder()
                 .addPath(new BezierCurve(shoot1,pickup2[0],pickup2[1]))
                 .setConstantHeadingInterpolation(shoot1.getHeading())
-                .addParametricCallback(0.38,()->{
-                    follower.setMaxPower(0.3);
-                    intakeOn = true;
-                    pidKp -= 0.002;
-                    pidKd += 0.0004;
-                })
                 .setTimeoutConstraint(500)
                 .build();
         pickupCall2 = new FakeParameticCallback(0.38,()->{
             follower.setMaxPower(0.3);
             intakeOn = true;
-            pidKp -= 0.002;
-            pidKd += 0.0004;
         },follower);
         pickupPath3 = follower.pathBuilder()
                 .addPath(new BezierCurve(shoot1,pickup3[0],pickup3[1]))
                 .setConstantHeadingInterpolation(shoot1.getHeading())
-                .addParametricCallback(0.45,()->{
-                    follower.setMaxPower(0.3);
-                    intakeOn = true;
-                    pidKp -= 0.002;
-                    pidKd += 0.0004;
-                })
                 .setTimeoutConstraint(500)
                 .build();
         pickupCall3 = new FakeParameticCallback(0.45,()->{
             follower.setMaxPower(0.3);
             intakeOn = true;
-            pidKp -= 0.002;
-            pidKd += 0.0004;
         },follower);
         gatePath = follower.pathBuilder()
                 .addPath(new BezierCurve(pickup1[1],gatePose[0],gatePose[1]))
@@ -382,6 +363,7 @@ public class CloseBlue12Ball extends LinearOpMode {
         hood = hardwareMap.get(Servo.class,"hood");
         turret1 = hardwareMap.get(CRServo.class, "tu1");
         turret2 = hardwareMap.get(CRServo.class, "tu2");
+        llservo = hardwareMap.get(Servo.class,"llservo");
 //        tempServo = hardwareMap.get(Servo.class,"speedometer");
 
         //ENCODERS
@@ -440,7 +422,6 @@ public class CloseBlue12Ball extends LinearOpMode {
         StateVars.lastPose = startPose;
         limelightWallPos = pickup1[1].getX();
         //endregion
-        hoodOffset=0;
         flySpeed -= shoot0change;
 
         //WAIT
@@ -483,8 +464,8 @@ public class CloseBlue12Ball extends LinearOpMode {
                             followPathPCallback(scorePath0,true,scoreCall0);
                             motifOn = true;
                             autoShootOn = true;
-                            shootingState=0;
-//                            tuOffset = -3.0;
+                            shootingState=1;
+//                            tuOffset = -60.5;//negative is more left
 
                             timeout = runtime.milliseconds() + 700; //delay for motif read
                             subState++;
@@ -498,7 +479,8 @@ public class CloseBlue12Ball extends LinearOpMode {
                     case 1:
                         if(subState==0){
                             followPathPCallback(pickupPath1,false,pickupCall1);
-//                            tuOffset = 0.0;
+                            tuOffset = 0.0;
+                            motifOn = false;
 
                             flySpeed += shoot0change;
 
@@ -549,7 +531,7 @@ public class CloseBlue12Ball extends LinearOpMode {
                     case 3:
                         if(subState==0){
                             followPathPCallback(pickupPath3,false,pickupCall3);
-//                            tuOffset = -2.0;
+                            tuOffset = -2.0;
 
                             subState++;
                         }
@@ -581,6 +563,7 @@ public class CloseBlue12Ball extends LinearOpMode {
             //endregion
 
             //region READ MOTIF
+            llservo.setPosition(0.82);
             if(motifOn&&timeout<runtime.milliseconds()){
                 int april = readMotifLimelight();
                 if(april!=-1) {
@@ -593,10 +576,6 @@ public class CloseBlue12Ball extends LinearOpMode {
                     }
                     motifOn=false;
                     StateVars.patternTagID = april;
-                    subState++;
-                }
-                else if(!follower.isBusy()){
-                    motifOn=false;
                     subState++;
                 }
             }
@@ -689,8 +668,8 @@ public class CloseBlue12Ball extends LinearOpMode {
                     shootingState++;
                 }
                 else if(shootingState==2){
-                    transOn = true;
                     if(flyAtSpeed){
+                        transOn = true;
                         spin1.setPower(0.85);
                         spin2.setPower(0.85);
                         cutoffSpinPID = true;
@@ -905,7 +884,7 @@ public class CloseBlue12Ball extends LinearOpMode {
         out = Range.clip(out, -1.0, 1.0);
         if (Math.abs(out) < tuDeadband) out = 0.0;
 
-        if(runtime.milliseconds()<1000) out = turretClock;
+        if(runtime.milliseconds()<1000&&angle<0) out = turretClock;
 
         turret1.setPower(out);
         turret2.setPower(out);

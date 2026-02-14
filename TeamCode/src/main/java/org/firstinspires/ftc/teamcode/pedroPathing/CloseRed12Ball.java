@@ -85,7 +85,7 @@ public class CloseRed12Ball extends LinearOpMode {
     private Servo hood = null;
     private CRServo turret1 = null;
     private CRServo turret2 = null;
-    //TODO temp servo for tuning flywheel pid
+    private Servo llservo = null;
 //    private Servo tempServo = null;
 
     // ENCODERS
@@ -363,6 +363,7 @@ public class CloseRed12Ball extends LinearOpMode {
         hood = hardwareMap.get(Servo.class,"hood");
         turret1 = hardwareMap.get(CRServo.class, "tu1");
         turret2 = hardwareMap.get(CRServo.class, "tu2");
+        llservo = hardwareMap.get(Servo.class,"llservo");
 //        tempServo = hardwareMap.get(Servo.class,"speedometer");
 
         //ENCODERS
@@ -463,8 +464,8 @@ public class CloseRed12Ball extends LinearOpMode {
                             followPathPCallback(scorePath0,true,scoreCall0);
                             motifOn = true;
                             autoShootOn = true;
-                            shootingState=0;
-                            tuOffset = -3.0;
+                            shootingState=1;
+                            tuOffset = -7.5;
 
                             timeout = runtime.milliseconds() + 700; //delay for motif read
                             subState++;
@@ -561,6 +562,7 @@ public class CloseRed12Ball extends LinearOpMode {
             //endregion
 
             //region READ MOTIF
+            llservo.setPosition(0.82);
             if(motifOn&&timeout<runtime.milliseconds()){
                 int april = readMotifLimelight();
                 if(april!=-1) {
@@ -669,8 +671,8 @@ public class CloseRed12Ball extends LinearOpMode {
                     shootingState++;
                 }
                 else if(shootingState==2){
-                    transOn = true;
                     if(flyAtSpeed){
+                        transOn = true;
                         spin1.setPower(0.85);
                         spin2.setPower(0.85);
                         cutoffSpinPID = true;
