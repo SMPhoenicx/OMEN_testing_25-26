@@ -589,7 +589,7 @@ public class CloseRed12BallPartner extends LinearOpMode {
             //endregion
 
             //region READ MOTIF
-            llservo.setPosition(0.82);
+            llservo.setPosition(0.77);
             if(motifOn&&timeout<runtime.milliseconds()){
                 int april = readMotifLimelight();
                 if(april!=-1) {

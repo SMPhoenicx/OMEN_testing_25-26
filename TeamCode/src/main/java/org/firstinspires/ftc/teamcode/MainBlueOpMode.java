@@ -46,6 +46,7 @@ import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
@@ -91,6 +92,7 @@ public class MainBlueOpMode extends LinearOpMode
     // Servos
     private Servo led = null;
     private Servo hood = null;
+    private Servo llservo = null;
     private CRServo spin1 = null;
     private CRServo spin2 = null;
     private CRServo turret1 = null;
@@ -135,11 +137,12 @@ public class MainBlueOpMode extends LinearOpMode
 
     //region TURRET SYSTEM
     // PIDF Constants
-    private double tuKp = 0.0058;
+    private double tuKp = 0.005;
     private double tuKi = 0.0006;
-    private double tuKd = 0.00015;
-    private double tuKf = 0.005;
-    private static final double tuKv = 0.0001;
+    private double tuKd = 0.00019;
+    private double tuKf = 0.012;
+    private static final double tuKv = 0.00045;
+    private static final double tuKa = 0.00005;
 
     private double lastTuTarget = 0.0;
     private boolean lastTuTargetInit = false;
@@ -151,13 +154,13 @@ public class MainBlueOpMode extends LinearOpMode
     private double tuLastD = 0.0;
 
     // Control Parameters
-    private final double tuToleranceDeg = 0.85;
-    private final double tuDeadband = 0.03;
+    private final double tuToleranceDeg = 0.3;
+    private final double tuDeadband = 0.01;
 
     // Turret Position
     private double tuPos = 0.0;
-    private static final double turretZeroDeg = 10.2;
-    private static final double TURRET_LIMIT_DEG = 150.0;
+    private static final double turretZeroDeg = -12.5;
+    private static final double TURRET_LIMIT_DEG = 160.0;
     private double tuOffset = 0.0;
     //endregion
 
@@ -167,8 +170,8 @@ public class MainBlueOpMode extends LinearOpMode
 
     private static final double[] CAM_RANGE_SAMPLES =   {25, 31.8, 37, 39.2, 44.2,  52.6, 53.1, 56.9, 61.5, 65.6, 70.3, 73.4, 77.5, 84.3, 91.8, 100.4, 110.0, 118.4};
     private static final double[] ODOM_RANGE_SAMPLES =  {45.2, 50.2, 55.3, 60.9, 66.5, 72.2, 76.7, 81.1, 86.3, 90.9, 96.2, 99.7, 104.3, 109.9, 118.1, 128.5, 139.6, 148.7};
-    private static final double[] FLY_SPEEDS =          {1004, 1016, 1041, 1071, 1115, 1132, 1143, 1151, 1212, 1236, 1244, 1252, 1253, 1259, 1273, 1358, 1387, 1421};
-    private static final double[] AIR_TIME =   {2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 3, 3.23, 3.5, 3.79, 4.27};  //seconds divide all by 4
+    private static final double[] FLY_SPEEDS =          {1004, 1016, 1041, 1071, 1115, 1132, 1143, 1151, 1212, 1233, 1241, 1249, 1253, 1256, 1273, 1358, 1387, 1421};
+    private static final double[] AIR_TIME =   {2.69, 2.79, 2.79, 2.79, 2.79, 2.79, 2.79, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 3, 3.23, 3.5, 3.79, 4.27};  //seconds divide all by 4
     private static final double[] HOOD_ANGLES = GlobalOffsets.globalHoodAngles;
     private double smoothedRange = 0;
     private static final double ALPHA = 0.8;
@@ -208,6 +211,9 @@ public class MainBlueOpMode extends LinearOpMode
 
     double shotTime = 0;
     public int loopNum = 0;
+
+    private double camTime = 0;
+    private boolean camUse = false;
     @Override
     public void runOpMode() {
         //region OPERATIONAL VARIABLES
@@ -255,6 +261,7 @@ public class MainBlueOpMode extends LinearOpMode
         spin2 = hardwareMap.get(CRServo.class, "spin2");
         led = hardwareMap.get(Servo.class, "led");
         hood = hardwareMap.get(Servo.class, "hood");
+        llservo = hardwareMap.get(Servo.class, "llservo");
         turret1 = hardwareMap.get(CRServo.class, "tu1");
         turret2 = hardwareMap.get(CRServo.class, "tu2");
 
@@ -591,9 +598,9 @@ public class MainBlueOpMode extends LinearOpMode
             if (gamepad1.rightBumperWasPressed()) {
                 intakeOn = !intakeOn;
                 if (intakeOn) {
-                    SpindexerController.Kp = 0.0063;
+                    SpindexerController.Kp = 0.0062;
                     SpindexerController.Kd = 0.0007;
-                    SpindexerController.tau = 0.05;
+                    SpindexerController.tau = 0.051;
                     flywheel.Kd = 0.0007;
                 } else {
                     SpindexerController.Kp = 0.007;
@@ -602,6 +609,13 @@ public class MainBlueOpMode extends LinearOpMode
                     flywheel.Kd = 0.0003;
                 }
                 tranOn = false;
+            }
+
+            if (!spindexer.hasEmptySlot()) {
+                SpindexerController.Kf = 0.033;
+            }
+            else {
+                SpindexerController.Kf = 0.01;
             }
 
             if (intakeOn) {
@@ -722,29 +736,22 @@ public class MainBlueOpMode extends LinearOpMode
             double safeTurretTargetDeg = applyTurretLimitWithWrap(rawTurretTargetDeg);
             tuPos = safeTurretTargetDeg;
 
-            double targetVelDegPerSec = 0.0;
-
+            double targetVel = 0.0;
+            double targetAccel = 0;
+            double robotAngVel = Math.toDegrees(follower.getAngularVelocity());
+            double dTarget = normalizeDeg180(safeTurretTargetDeg - lastTuTarget) / Math.max(dtSec, 1e-3);
             //feedforward
             if (!lastTuTargetInit) {
-                lastTuTarget = safeTurretTargetDeg;
                 lastTuTargetInit = true;
             } else if (trackingOn) {
-                double dTarget = normalizeDeg180(safeTurretTargetDeg - lastTuTarget);
-                targetVelDegPerSec = dTarget / Math.max(dtSec, 1e-3);
-                if (voltage >= 12.8) {
-                    targetVelDegPerSec += -turnInput * 300;
-                }
-                if (voltage < 12.8) {
-                    targetVelDegPerSec += -turnInput * 260;
-                }
-                lastTuTarget = safeTurretTargetDeg;
+                targetVel = dTarget - robotAngVel;
             } else {
                 // no FF when not tracking
-                targetVelDegPerSec = 0.0;
-                lastTuTarget = safeTurretTargetDeg;
+                targetVel = 0.0;
             }
+            lastTuTarget = safeTurretTargetDeg;
 
-            updateTurretPIDWithTargetFF(tuPos, targetVelDegPerSec, dtSec);
+            updateTurretPIDWithTargetFF(safeTurretTargetDeg, targetVel, dtSec);
             //endregion
 
             //region DRIVE CONTROL
@@ -783,7 +790,6 @@ public class MainBlueOpMode extends LinearOpMode
             telemetry.update();
         }
     }
-
 
     //region HELPER METHODS
     public void moveRobot(double x, double y, double yaw) {
@@ -1079,7 +1085,7 @@ public class MainBlueOpMode extends LinearOpMode
     }
 
     //TODO check ff and calculations for this, make as fast as possible
-    private void updateTurretPIDWithTargetFF(double targetAngle, double targetVelDegPerSec, double dt) {
+    private void updateTurretPIDWithTargetFF(double targetAngle, double targetVel, double dt) {
         double angle = getTurretAngleDeg();
 
         double error = -angleError(targetAngle, angle);
@@ -1099,7 +1105,7 @@ public class MainBlueOpMode extends LinearOpMode
         if (Math.abs(error) > tuToleranceDeg) out += tuKf * Math.signum(error);
 
         // target-rate FF (helps match d(turret)/d(target))
-        out += tuKv * targetVelDegPerSec;
+        out += tuKv * targetVel;
 
         out = Range.clip(out, -1.0, 1.0);
         if (Math.abs(out) < tuDeadband) out = 0.0;

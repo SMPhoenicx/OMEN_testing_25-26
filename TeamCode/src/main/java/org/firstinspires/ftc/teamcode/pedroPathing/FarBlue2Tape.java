@@ -633,7 +633,7 @@ public class FarBlue2Tape extends LinearOpMode {
             //endregion
 
             //region LIMELIGHT SERVO
-            llservo.setPosition(0.82);
+            llservo.setPosition(0.77);
             //endregion
 
             //region INTAKE

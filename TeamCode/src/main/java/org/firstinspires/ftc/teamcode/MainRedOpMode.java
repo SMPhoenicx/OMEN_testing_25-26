@@ -92,6 +92,7 @@ public class MainRedOpMode extends LinearOpMode
     // Servos
     private Servo led = null;
     private Servo hood = null;
+    private Servo llservo = null;
     private CRServo spin1 = null;
     private CRServo spin2 = null;
     private CRServo turret1 = null;
@@ -136,11 +137,11 @@ public class MainRedOpMode extends LinearOpMode
 
     //region TURRET SYSTEM
     // PIDF Constants
-    private double tuKp = 0.0054;
+    private double tuKp = 0.005;
     private double tuKi = 0.0006;
-    private double tuKd = 0.00023;
-    private double tuKf = 0.01;
-    private static final double tuKv = 0.0004;
+    private double tuKd = 0.00019;
+    private double tuKf = 0.012;
+    private static final double tuKv = 0.00045;
     private static final double tuKa = 0.00005;
 
     private double lastTuTarget = 0.0;
@@ -158,8 +159,8 @@ public class MainRedOpMode extends LinearOpMode
 
     // Turret Position
     private double tuPos = 0.0;
-    private static final double turretZeroDeg = 3.8;
-    private static final double TURRET_LIMIT_DEG = 150.0;
+    private static final double turretZeroDeg = -12.5;
+    private static final double TURRET_LIMIT_DEG = 160.0;
     private double tuOffset = 0.0;
     //endregion
 
@@ -210,6 +211,9 @@ public class MainRedOpMode extends LinearOpMode
 
     double shotTime = 0;
     public int loopNum = 0;
+
+    private double camTime = 0;
+    private boolean camUse = false;
     @Override
     public void runOpMode() {
         //region OPERATIONAL VARIABLES
@@ -257,6 +261,7 @@ public class MainRedOpMode extends LinearOpMode
         spin2 = hardwareMap.get(CRServo.class, "spin2");
         led = hardwareMap.get(Servo.class, "led");
         hood = hardwareMap.get(Servo.class, "hood");
+        llservo = hardwareMap.get(Servo.class, "llservo");
         turret1 = hardwareMap.get(CRServo.class, "tu1");
         turret2 = hardwareMap.get(CRServo.class, "tu2");
 

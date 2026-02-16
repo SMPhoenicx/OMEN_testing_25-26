@@ -21,7 +21,7 @@ public class SpindexerController {
     public static double outputDeadband = 0.02;
     public static double tau = 0.03;
 
-    public double globalOffset = 30.0;
+    public double globalOffset = 2.6;
 
     //removed in between positions
     private final double[] SPINDEXER_POSITIONS = {49.75, 79.75, 109.75, 139.75, 169.75, 19.75};
