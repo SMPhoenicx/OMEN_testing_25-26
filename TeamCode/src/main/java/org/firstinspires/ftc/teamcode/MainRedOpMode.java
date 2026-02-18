@@ -169,26 +169,7 @@ public class MainRedOpMode extends LinearOpMode
     private double flyTargetTicksPerSec = 0.0;
 
     private static final double[] CAM_RANGE_SAMPLES =   {25, 31.8, 37, 39.2, 44.2,  52.6, 53.1, 56.9, 61.5, 65.6, 70.3, 73.4, 77.5, 84.3, 91.8, 100.4, 110.0, 118.4};
-    private static final double[] ODOM_RANGE_SAMPLES = {
-            44.7,  // was 45.2
-            49.7,  // was 50.2
-            54.7,  // was 55.3
-            60.3,  // was 60.9
-            65.8,  // was 66.5
-            71.4,  // was 72.2
-            75.9,  // was 76.7
-            80.3,  // was 81.1
-            85.4,  // was 86.3
-            90.0,  // was 90.9
-            95.2,  // was 96.2
-            98.7,  // was 99.7
-            103.2, // was 104.3
-            108.8, // was 109.9
-            116.9, // was 118.1
-            127.2, // was 128.5
-            138.2, // was 139.6
-            147.2  // was 148.7
-    };
+    private static final double[] ODOM_RANGE_SAMPLES =  {45.2, 50.2, 55.3, 60.9, 66.5, 72.2, 76.7, 81.1, 86.3, 90.9, 96.2, 99.7, 104.3, 109.9, 118.1, 128.5, 139.6, 148.7};
     private static final double[] FLY_SPEEDS =          {1004, 1016, 1041, 1071, 1115, 1132, 1143, 1151, 1212, 1233, 1241, 1249, 1253, 1256, 1273, 1358, 1387, 1421};
     private static final double[] AIR_TIME =   {2.69, 2.79, 2.79, 2.79, 2.79, 2.79, 2.79, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 3, 3.23, 3.5, 3.79, 4.27};  //seconds divide all by 4
     private static final double[] HOOD_ANGLES = GlobalOffsets.globalHoodAngles;
@@ -511,6 +492,9 @@ public class MainRedOpMode extends LinearOpMode
             // interpolate between measured values
             if (!flyHoodLock) {
                 flySpeed = interpolate(smoothedRange, ODOM_RANGE_SAMPLES, FLY_SPEEDS);
+                if (odomRange < 100 && odomRange > 30) {
+                    flySpeed -= 5;
+                }
                 hoodAngle = interpolate(smoothedRange, ODOM_RANGE_SAMPLES, HOOD_ANGLES);
                 hoodAngle = Math.max(hoodAngle, -140); //clamp to prevent it going too high
             }

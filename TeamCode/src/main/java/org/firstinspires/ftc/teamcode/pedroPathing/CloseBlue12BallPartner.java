@@ -2,7 +2,11 @@ package org.firstinspires.ftc.teamcode.pedroPathing;
 
 import android.util.Size;
 
+import com.pedropathing.control.FilteredPIDFCoefficients;
+import com.pedropathing.control.PIDFCoefficients;
+import com.pedropathing.control.PredictiveBrakingCoefficients;
 import com.pedropathing.follower.Follower;
+import com.pedropathing.follower.FollowerConstants;
 import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
@@ -240,6 +244,22 @@ public class CloseBlue12BallPartner extends LinearOpMode {
     Vector velocity = new Vector(0,0);
 //    private final PathConstraints shootConstraints = new PathConstraints(0.99, 500, 0.65, 0.8);
 
+    public static FollowerConstants tempConstants = new FollowerConstants()
+            .mass(14.06)
+            .forwardZeroPowerAcceleration(-27.344838180167027)//-8.14)
+            .lateralZeroPowerAcceleration(-66.24734786444934)//-11.04)
+            .translationalPIDFCoefficients(new PIDFCoefficients(0.18, 0, 0.033, 0.04))
+            .secondaryTranslationalPIDFCoefficients(new PIDFCoefficients(0.03,0,0.028,0.005))
+            .headingPIDFCoefficients(new PIDFCoefficients(1.2,0,0.1,0.09))
+            .secondaryHeadingPIDFCoefficients(new PIDFCoefficients(1,0,0.22,0.02))
+            .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.47,0,0.0141,0.62,0.03))
+            .secondaryDrivePIDFCoefficients(new FilteredPIDFCoefficients(0.041,0,0.000268,0.62,0.03))
+            .centripetalScaling(0.0003)
+            .predictiveBrakingCoefficients(new PredictiveBrakingCoefficients(0.035,0.10411094805285057,0.0011477963190705217))
+            .useSecondaryTranslationalPIDF(true)
+            .useSecondaryHeadingPIDF(true)
+            .useSecondaryDrivePIDF(true);
+
     public void createPoses(){
         startPose = new Pose(19.9,123.5,Math.toRadians(54));
 
@@ -280,7 +300,7 @@ public class CloseBlue12BallPartner extends LinearOpMode {
                 .setTimeoutConstraint(500)
                 .build();
         pickupCall1 = new FakeParameticCallback(0.38,()->{
-            follower.setMaxPower(0.3);
+            follower.setMaxPower(0.5);
             intakeOn = true;
         },follower);
 
@@ -509,6 +529,8 @@ public class CloseBlue12BallPartner extends LinearOpMode {
                     //region CYCLE TWO
                     case 2:
                         if(subState==0){
+                            tempConstants.usePredictiveBraking = false;
+                            follower.setConstants(tempConstants);
                             followPathPCallback(pickupPath2,true,pickupCall2);
 
                             subState++;
@@ -518,7 +540,6 @@ public class CloseBlue12BallPartner extends LinearOpMode {
                             subState++;
                         }
                         else if(subState==2){
-                            follower.usePredictiveBraking = false;
                             followPathPCallback(junoPath[0],false,junoCall[0]);
                             cutoffTimer = runtime.milliseconds() + 2000;
                             canCutoffTimer = true;
@@ -534,9 +555,10 @@ public class CloseBlue12BallPartner extends LinearOpMode {
                         }
                         //INTAKE is subState 0-3
                         else if(subState==4){
+                            tempConstants.usePredictiveBraking = true;
+                            follower.setConstants(tempConstants);
                             canCutoffTimer = false;
                             shutoffIntake = true;
-                            follower.usePredictiveBraking = true;
                             follower.setMaxPower(1);
                             followPathPCallback(scorePath2,true,scoreCall2);
                             autoShootOn = true;

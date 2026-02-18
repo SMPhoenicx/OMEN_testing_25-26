@@ -2,7 +2,11 @@ package org.firstinspires.ftc.teamcode.pedroPathing;
 
 import android.util.Size;
 
+import com.pedropathing.control.FilteredPIDFCoefficients;
+import com.pedropathing.control.PIDFCoefficients;
+import com.pedropathing.control.PredictiveBrakingCoefficients;
 import com.pedropathing.follower.Follower;
+import com.pedropathing.follower.FollowerConstants;
 import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
@@ -222,7 +226,7 @@ public class FarBlue1Tape extends LinearOpMode {
 
     // Turret Position
     private double tuPos = 0.0;
-    private static final double TURRET_LIMIT_DEG = 150.0;
+    private static final double TURRET_LIMIT_DEG = 165.0;
     private double tuOffset = 0.0;
     private boolean trackingOn = true;
     //endregion
@@ -238,6 +242,23 @@ public class FarBlue1Tape extends LinearOpMode {
 
     private final PathConstraints shootConstraints = new PathConstraints(0.99, 100, 0.85, 1);
 
+
+    public static FollowerConstants tempConstants = new FollowerConstants()
+            .mass(14.06)
+            .forwardZeroPowerAcceleration(-27.344838180167027)//-8.14)
+            .lateralZeroPowerAcceleration(-66.24734786444934)//-11.04)
+            .translationalPIDFCoefficients(new PIDFCoefficients(0.18, 0, 0.033, 0.04))
+            .secondaryTranslationalPIDFCoefficients(new PIDFCoefficients(0.03,0,0.028,0.005))
+            .headingPIDFCoefficients(new PIDFCoefficients(1.2,0,0.1,0.09))
+            .secondaryHeadingPIDFCoefficients(new PIDFCoefficients(1,0,0.22,0.02))
+            .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.47,0,0.0141,0.62,0.03))
+            .secondaryDrivePIDFCoefficients(new FilteredPIDFCoefficients(0.041,0,0.000268,0.62,0.03))
+            .centripetalScaling(0.0003)
+            .predictiveBrakingCoefficients(new PredictiveBrakingCoefficients(0.035,0.10411094805285057,0.0011477963190705217))
+            .useSecondaryTranslationalPIDF(true)
+            .useSecondaryHeadingPIDF(true)
+            .useSecondaryDrivePIDF(true);
+
     public void createPoses(){
         startPose = new Pose(56.8,8.5,Math.toRadians(90));
 
@@ -248,12 +269,12 @@ public class FarBlue1Tape extends LinearOpMode {
         pickup2[0] = new Pose(64.0,68.6,Math.toRadians(180));
         pickup2[1] = new Pose(9,60.55,Math.toRadians(180));
 
-        pickup3[0] = new Pose(15.72,24.91,Math.toRadians(180));
-        pickup3[1] = new Pose(8.81,10.39,Math.toRadians(220));
+        pickup3[0] = new Pose(54.684705882352944,8.392352941176465,Math.toRadians(180));
+        pickup3[1] = new Pose(8.81,9.39,Math.toRadians(180));
 
-        junoPose[0] = new Pose(29.78,15.40,Math.toRadians(180));//backup pose
+        junoPose[0] = new Pose(11.41529411764706,16.67058823529413,Math.toRadians(180));//backup pose
         junoPose[1] = new Pose(24.03,4.75,Math.toRadians(180));//control point
-        junoPose[2] = new Pose(8.59,5.09,Math.toRadians(180));
+        junoPose[2] = new Pose(8.59,7.59,Math.toRadians(180));
 
         shoot0 = new Pose(62.5,26.5,Math.toRadians(180));
         shoot1 = new Pose(58,19,Math.toRadians(180));
@@ -291,7 +312,8 @@ public class FarBlue1Tape extends LinearOpMode {
                 .setLinearHeadingInterpolation(shoot1.getHeading(),pickup3[1].getHeading())
                 .setTimeoutConstraint(500)
                 .build();
-        pickupCall3 = new FakeParameticCallback(0.33,()->{
+        pickupCall3 = new FakeParameticCallback(0.2,()->{
+            follower.setMaxPower(0.5);
             intakeOn = true;
         },follower);
         junoPath[0] = follower.pathBuilder()
@@ -571,6 +593,8 @@ public class FarBlue1Tape extends LinearOpMode {
                     //region CYCLE THREE
                     case 3:
                         if(subState==0){
+                            tempConstants.usePredictiveBraking = false;
+                            follower.setConstants(tempConstants);
                             followPathPCallback(pickupPath3,true,pickupCall3);
                             flyOffset = 20;
                             tuOffset = 0;
@@ -592,11 +616,10 @@ public class FarBlue1Tape extends LinearOpMode {
                             subState++;
                         }
                         else if(subState==3){
+                            follower.setMaxPower(0.6);
                             follower.followPath(junoPath[1],true);
-                            trackingOn = true;
                             canCutoffTimer = true;
                             cutoffTimer = runtime.milliseconds() + 3000;
-
 
                             subState++;
                         }

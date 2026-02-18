@@ -42,6 +42,7 @@ public class SpindexerController {
 
     public int prevSpindexerIndex = 0;
     public int classifiedBalls = 0;
+    public double spinPower = 0.8;
     public SpindexerController(CRServo s1, CRServo s2, AnalogInput enc) {
         this.spin1 = s1;
         this.spin2 = s2;
@@ -54,8 +55,8 @@ public class SpindexerController {
      */
     public void update(double dt) {
         if (isRapidFire) {
-            spin1.setPower(0.8);
-            spin2.setPower(0.8);
+            spin1.setPower(spinPower);
+            spin2.setPower(spinPower);
             return;
         }
 

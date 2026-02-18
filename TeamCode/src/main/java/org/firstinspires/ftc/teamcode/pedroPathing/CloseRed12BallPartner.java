@@ -468,7 +468,7 @@ public class CloseRed12BallPartner extends LinearOpMode {
             //region PATH STUFF
             if(!follower.isBusy()&&runtime.milliseconds()>timeout){
                 switch(pathState){
-                    //region CYCLE ZERO (READ MOTIF)
+                    //region CYCLE ZERO (READ MO TIF)
                     case 0:
                         if(subState==0){
                             followPathPCallback(scorePath0,true,scoreCall0);
