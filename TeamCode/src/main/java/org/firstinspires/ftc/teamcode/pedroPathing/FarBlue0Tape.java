@@ -2,7 +2,11 @@ package org.firstinspires.ftc.teamcode.pedroPathing;
 
 import android.util.Size;
 
+import com.pedropathing.control.FilteredPIDFCoefficients;
+import com.pedropathing.control.PIDFCoefficients;
+import com.pedropathing.control.PredictiveBrakingCoefficients;
 import com.pedropathing.follower.Follower;
+import com.pedropathing.follower.FollowerConstants;
 import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
@@ -55,9 +59,9 @@ public class FarBlue0Tape extends LinearOpMode {
 
     //region PEDRO VARS
     private Follower follower;
-    private Pose startPose, shoot1, shoot0, movePoint;
+    private Pose startPose, shoot1, shoot2, shoot0, movePoint;
     private Pose[] pickup1 = new Pose[2];
-    private Pose[] pickup2 = new Pose[2];
+    private Pose[] pickup2 = new Pose[3];
     private Pose[] pickup3 = new Pose[3];
     private Pose[] junoPose = new Pose[3];
     private PathChain scorePath0, scorePath1, scorePath2, scorePath3, moveScore,limelightPath,gatePath, pickupPath1, pickupPath2, pickupPath3;
@@ -67,7 +71,7 @@ public class FarBlue0Tape extends LinearOpMode {
     //region PARA CALLBACKS
     FakeParameticCallback[] current = new FakeParameticCallback[2];
 
-    FakeParameticCallback pickupCall1, pickupCall2, pickupCall3, scoreCall0, scoreCall1, scoreCall2, scoreCall3, turretCall3;
+    FakeParameticCallback pickupCall1, pickupCall2, pickupCall3, scoreCall0, scoreCall1, scoreCall2, scoreCall3, turretCall2, turretCall3;
     //endregion
 
     //region HARDWARE DECLARATIONS
@@ -222,7 +226,7 @@ public class FarBlue0Tape extends LinearOpMode {
 
     // Turret Position
     private double tuPos = 0.0;
-    private static final double TURRET_LIMIT_DEG = 150.0;
+    private static final double TURRET_LIMIT_DEG = 170.0;
     private double tuOffset = 0.0;
     private boolean trackingOn = true;
     //endregion
@@ -235,6 +239,21 @@ public class FarBlue0Tape extends LinearOpMode {
     //endregion
     double shotTime = 0;
     Vector velocity = new Vector(0,0);
+    public static FollowerConstants tempConstants = new FollowerConstants()
+            .mass(14.06)
+            .forwardZeroPowerAcceleration(-27.344838180167027)//-8.14)
+            .lateralZeroPowerAcceleration(-66.24734786444934)//-11.04)
+            .translationalPIDFCoefficients(new PIDFCoefficients(0.18, 0, 0.033, 0.04))
+            .secondaryTranslationalPIDFCoefficients(new PIDFCoefficients(0.03,0,0.028,0.005))
+            .headingPIDFCoefficients(new PIDFCoefficients(1.2,0,0.1,0.09))
+            .secondaryHeadingPIDFCoefficients(new PIDFCoefficients(1,0,0.22,0.02))
+            .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.47,0,0.0141,0.62,0.03))
+            .secondaryDrivePIDFCoefficients(new FilteredPIDFCoefficients(0.041,0,0.000268,0.62,0.03))
+            .centripetalScaling(0.0003)
+            .predictiveBrakingCoefficients(new PredictiveBrakingCoefficients(0.035,0.10411094805285057,0.0011477963190705217))
+            .useSecondaryTranslationalPIDF(true)
+            .useSecondaryHeadingPIDF(true)
+            .useSecondaryDrivePIDF(true);
 
     private final PathConstraints shootConstraints = new PathConstraints(0.99, 100, 0.85, 1);
 
@@ -245,8 +264,9 @@ public class FarBlue0Tape extends LinearOpMode {
         pickup1[0] = new Pose(60.86,40.52,Math.toRadians(180));
         pickup1[1] = new Pose(10,35.68,Math.toRadians(180));
 
-        pickup2[0] = new Pose(64.0,68.6,Math.toRadians(180));
-        pickup2[1] = new Pose(9,60.55,Math.toRadians(180));
+        pickup2[0] = new Pose(10,-2,Math.toRadians(270));
+        pickup2[1] = new Pose(9.2,50,Math.toRadians(270));
+        pickup2[2] = new Pose(9.20,8.42,Math.toRadians(270));
 
         pickup3[0] = new Pose(15.72,24.91,Math.toRadians(180));
         pickup3[1] = new Pose(8.81,10.39,Math.toRadians(220));
@@ -257,6 +277,7 @@ public class FarBlue0Tape extends LinearOpMode {
 
         shoot0 = new Pose(62.5,26.5,Math.toRadians(180));
         shoot1 = new Pose(58,19,Math.toRadians(180));
+        shoot2 = new Pose(58,19,Math.toRadians(135));
         movePoint = new Pose(35.5,18.5,Math.toRadians(90));
     }
 
@@ -277,21 +298,20 @@ public class FarBlue0Tape extends LinearOpMode {
             intakeOn = true;
         },follower);
         pickupPath2 = follower.pathBuilder()
-                .addPath(new BezierCurve(shoot1,pickup2[0],pickup2[1]))
-                .setConstantHeadingInterpolation(shoot1.getHeading())
+                .addPath(new BezierCurve(shoot0,pickup2[0],pickup2[1],pickup2[2]))
+                .setLinearHeadingInterpolation(shoot0.getHeading(),pickup2[2].getHeading(),0.6)
                 .setTimeoutConstraint(500)
                 .build();
-        pickupCall2 = new FakeParameticCallback(0.35,()->{
-            follower.setMaxPower(0.36);
+        pickupCall2 = new FakeParameticCallback(0.7,()->{
+            follower.setMaxPower(0.5);
             intakeOn = true;
         },follower);
-
         pickupPath3 = follower.pathBuilder()
                 .addPath(new BezierCurve(shoot1,pickup3[0],pickup3[1]))
                 .setLinearHeadingInterpolation(shoot1.getHeading(),pickup3[1].getHeading())
                 .setTimeoutConstraint(500)
                 .build();
-        pickupCall3 = new FakeParameticCallback(0.33,()->{
+        pickupCall3 = new FakeParameticCallback(0.8,()->{
             intakeOn = true;
         },follower);
         junoPath[0] = follower.pathBuilder()
@@ -303,6 +323,7 @@ public class FarBlue0Tape extends LinearOpMode {
                 .setLinearHeadingInterpolation(junoPose[0].getHeading(),junoPose[2].getHeading(),0.8)
                 .setTimeoutConstraint(500)
                 .build();
+
         scorePath1 = follower.pathBuilder()
                 .addPath(new BezierLine(pickup1[1],shoot1))
                 .setConstraints(shootConstraints)
@@ -310,17 +331,18 @@ public class FarBlue0Tape extends LinearOpMode {
                 .build();
         scoreCall1 = new FakeParameticCallback(0.9,()-> shootReady=true,follower);
         scorePath2 = follower.pathBuilder()
-                .addPath(new BezierLine(pickup2[1],shoot1))
+                .addPath(new BezierLine(pickup2[2],shoot1))
                 .setConstraints(shootConstraints)
                 .setTranslationalConstraint(1.5)
-                .setConstantHeadingInterpolation(shoot1.getHeading())
+                .setLinearHeadingInterpolation(pickup2[2].getHeading(),shoot1.getHeading(),0.6,0.16)
                 .build();
         scoreCall2 = new FakeParameticCallback(0.9,()-> shootReady=true,follower);
+        turretCall2 = new FakeParameticCallback(0.9,()-> trackingOn=true,follower);
         scorePath3 = follower.pathBuilder()
                 .addPath(new BezierLine(pickup3[1],shoot1))
                 .setConstraints(shootConstraints)
                 .setTranslationalConstraint(1.5)
-                .setLinearHeadingInterpolation(junoPose[2].getHeading(),shoot1.getHeading(),0.5)
+                .setLinearHeadingInterpolation(pickup3[1].getHeading(),shoot1.getHeading(),0.5)
                 .build();
         scoreCall3 = new FakeParameticCallback(0.9,()-> shootReady=true,follower);
 //        turretCall3 = new FakeParameticCallback(0.6,()-> trackingOn=true,follower);
@@ -526,7 +548,7 @@ public class FarBlue0Tape extends LinearOpMode {
 
                     //region CYCLE ONE
                     case 1:
-                        pathState = 3;
+                        pathState = 2;
 //                        if(subState==0){
 //                            followPathPCallback(pickupPath1,false,pickupCall1);
 //                            tuOffset = 0;
@@ -549,22 +571,24 @@ public class FarBlue0Tape extends LinearOpMode {
 
                     //region CYCLE TWO
                     case 2:
-                        pathState = 3;
-//                        if(subState==0){
-//                            followPathPCallback(pickupPath2,false,pickupCall2);
-//                            flyOffset = 20;
-//
-//                            subState++;
-//                        }
-//                        //INTAKE is subState 1
-//                        else if(subState==2){
-//                            follower.setMaxPower(1);
-//                            followPathPCallback(scorePath2,true,scoreCall2);
-//                            autoShootOn = true;
-//                            shootingState=0;
-//
-//                            subState++;
-//                        }
+                        if(subState==0){
+                            tempConstants.usePredictiveBraking = false;
+                            follower.setConstants(tempConstants);
+                            followPathPCallback(pickupPath2,false,pickupCall2);
+                            flyOffset = 20;
+                            trackingOn = false;
+
+                            subState++;
+                        }
+                        //INTAKE is subState 1
+                        else if(subState==2){
+                            follower.setMaxPower(1);
+                            followPathPCallback(scorePath2,true,scoreCall2,turretCall2);
+                            autoShootOn = true;
+                            shootingState=0;
+
+                            subState++;
+                        }
                         //AUTO SHOOTING is subState 3, resets subState, and increments pathState
                         break;
                     //endregion
@@ -572,6 +596,8 @@ public class FarBlue0Tape extends LinearOpMode {
                     //region CYCLE THREE
                     case 3:
                         if(subState==0){
+                            tempConstants.usePredictiveBraking = false;
+                            follower.setConstants(tempConstants);
                             followPathPCallback(pickupPath3,true,pickupCall3);
                             flyOffset = 20;
                             tuOffset = 0;
@@ -637,7 +663,7 @@ public class FarBlue0Tape extends LinearOpMode {
             //endregion
 
             //region LIMELIGHT SERVO
-            llservo.setPosition(0.77);
+            llservo.setPosition(0.38);
             //endregion
 
             //region INTAKE

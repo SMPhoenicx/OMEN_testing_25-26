@@ -563,7 +563,7 @@ public class CloseBlue12Ball extends LinearOpMode {
             //endregion
 
             //region READ MOTIF
-            llservo.setPosition(0.77);
+            llservo.setPosition(0.38);
             if(motifOn&&timeout<runtime.milliseconds()){
                 int april = readMotifLimelight();
                 if(april!=-1) {
@@ -585,8 +585,13 @@ public class CloseBlue12Ball extends LinearOpMode {
             char detectedColor = getRealColor();
             boolean present = isBallPresent();
             int currentSlot = indexToSlot(spindexerIndex);
-            if(intakeOn&&runtime.milliseconds()>timeout){
+//            if(pathState!=0){
+//                intake.setPower(1);
+//            }
+            boolean thisFuckassIntake=false;
+            if(intakeOn&&timeout<runtime.milliseconds()){
                 intake.setPower(1);
+                thisFuckassIntake = true;
                 transOn=false;
                 if (present && savedBalls[currentSlot] == 'n' && spindexerAtTarget) {
 
@@ -825,6 +830,7 @@ public class CloseBlue12Ball extends LinearOpMode {
             telemetry.addData("tuPos",tuPos);
             telemetry.addData("heading", follower.getPose().getHeading());
             telemetry.addData("Green Position",greenPos);
+            telemetry.addData("thisFuckassIntake",thisFuckassIntake);
             telemetry.addData("actual fly speed","Wheel 1: %.1f Wheel 2: %.1f", fly1.getVelocity(), fly2.getVelocity());
             telemetry.addData("spindexer pos",spindexerIndex);
             telemetry.addData("spindexer at target",spindexerAtTarget);

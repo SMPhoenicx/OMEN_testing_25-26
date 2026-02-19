@@ -659,7 +659,7 @@ public class FarBlue1Tape extends LinearOpMode {
             //endregion
 
             //region LIMELIGHT SERVO
-            llservo.setPosition(0.77);
+            llservo.setPosition(0.38);
             //endregion
 
             //region INTAKE
