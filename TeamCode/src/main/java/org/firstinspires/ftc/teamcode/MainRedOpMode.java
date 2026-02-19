@@ -34,6 +34,8 @@ import static java.lang.Math.round;
 import android.util.Size;
 
 import com.pedropathing.follower.Follower;
+import com.pedropathing.ftc.InvertedFTCCoordinates;
+import com.pedropathing.ftc.PoseConverter;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.math.Vector;
@@ -59,6 +61,7 @@ import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.Exposur
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.robotcore.external.navigation.Position;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
@@ -137,12 +140,12 @@ public class MainRedOpMode extends LinearOpMode
 
     //region TURRET SYSTEM
     // PIDF Constants
-    private double tuKp = 0.005;
-    private double tuKi = 0.0006;
-    private double tuKd = 0.00019;
-    private double tuKf = 0.012;
+    private double tuKp = 0.0038;//0.005;
+    private double tuKi = 0.0;//0.0006;
+    private double tuKd = 0.00028;//0.00019;
+    private double tuKf = 0.031;//0.012;
     private static final double tuKv = 0.00045;
-    private static final double tuKa = 0.00005;
+    private static final double tuKa = 0.0;//0.00005;
 
     private double lastTuTarget = 0.0;
     private boolean lastTuTargetInit = false;
@@ -159,8 +162,8 @@ public class MainRedOpMode extends LinearOpMode
 
     // Turret Position
     private double tuPos = 0.0;
-    private static final double turretZeroDeg = -12.5;
-    private static final double TURRET_LIMIT_DEG = 160.0;
+    private static final double turretZeroDeg = -17.5;
+    private static final double TURRET_LIMIT_DEG = 165.0;
     private double tuOffset = 0.0;
     //endregion
 
@@ -168,10 +171,9 @@ public class MainRedOpMode extends LinearOpMode
     private FlywheelPIDController flywheel;
     private double flyTargetTicksPerSec = 0.0;
 
-    private static final double[] CAM_RANGE_SAMPLES =   {25, 31.8, 37, 39.2, 44.2,  52.6, 53.1, 56.9, 61.5, 65.6, 70.3, 73.4, 77.5, 84.3, 91.8, 100.4, 110.0, 118.4};
-    private static final double[] ODOM_RANGE_SAMPLES =  {45.2, 50.2, 55.3, 60.9, 66.5, 72.2, 76.7, 81.1, 86.3, 90.9, 96.2, 99.7, 104.3, 109.9, 118.1, 128.5, 139.6, 148.7};
-    private static final double[] FLY_SPEEDS =          {1004, 1016, 1041, 1071, 1115, 1132, 1143, 1151, 1212, 1233, 1241, 1249, 1253, 1256, 1273, 1358, 1387, 1421};
-    private static final double[] AIR_TIME =   {2.69, 2.79, 2.79, 2.79, 2.79, 2.79, 2.79, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 3, 3.23, 3.5, 3.79, 4.27};  //seconds divide all by 4
+    private static final double[] ODOM_RANGE_SAMPLES =  {45.2, 50.2, 55.3, 60.9, 66.5, 72.2, 76.7, 81.1, 86.3, 90.9, 96.2, 99.7, 104.3, 109.9, 118.1, 128.5, 139.6, 148.7, 163.4};
+    private static final double[] FLY_SPEEDS =          {993, 1003, 1029, 1059, 1105, 1127, 1135, 1146, 1207, 1226, 1234, 1238, 1240, 1245, 1261, 1355, 1386, 1417, 1465};
+    private static final double[] AIR_TIME =   {2.7, 2.68, 2.68, 2.67, 2.69, 2.72, 2.74, 2.76, 2.79, 2.82, 2.86, 2.89, 2.89, 3, 3.23, 3.5, 3.79, 4.27, 4.6};  //seconds divide all by 4
     private static final double[] HOOD_ANGLES = GlobalOffsets.globalHoodAngles;
     private double smoothedRange = 0;
     private static final double ALPHA = 0.8;
@@ -272,6 +274,7 @@ public class MainRedOpMode extends LinearOpMode
         // Initialize Sensors
         color1 = hardwareMap.get(NormalizedColorSensor.class, "Color 1");
         color2 = hardwareMap.get(NormalizedColorSensor.class, "Color 2");
+        pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
 
         // Hubs
         List<LynxModule> allHubs = hardwareMap.getAll(LynxModule.class);
@@ -306,9 +309,28 @@ public class MainRedOpMode extends LinearOpMode
         //endregion
 
         //region PRE-START
-        follower = Constants.createFollower(hardwareMap);
-        follower.setStartingPose(StateVars.lastPose);
+        pinpoint.update();
+        Pose2D pose = pinpoint.getPosition();
 
+        Pose rawStartPose = PoseConverter.pose2DToPose(
+                pose,
+                InvertedFTCCoordinates.INSTANCE
+        );
+
+        double heading = rawStartPose.getHeading();
+        double normalizedHeading = Math.atan2(Math.sin(heading), Math.cos(heading));
+        Pose startPose = new Pose(rawStartPose.getX(), rawStartPose.getY(), normalizedHeading);
+
+        Pose2D ftcStartPose = PoseConverter.poseToPose2D(
+                startPose,
+                InvertedFTCCoordinates.INSTANCE
+        );
+        follower = Constants.createFollower(hardwareMap);
+        pinpoint.setPosition(ftcStartPose);
+        follower.setStartingPose(startPose);
+        telemetry.addData("pose", pose);
+        telemetry.addData("pose pedro", startPose);
+        telemetry.addData("pose last", StateVars.lastPose);
         //TODO check if pattern works
         int patternTag = StateVars.patternTagID;
         if (patternTag == 21) {
@@ -492,11 +514,13 @@ public class MainRedOpMode extends LinearOpMode
             // interpolate between measured values
             if (!flyHoodLock) {
                 flySpeed = interpolate(smoothedRange, ODOM_RANGE_SAMPLES, FLY_SPEEDS);
-                if (odomRange < 100 && odomRange > 30) {
-                    flySpeed -= 5;
-                }
-                hoodAngle = interpolate(smoothedRange, ODOM_RANGE_SAMPLES, HOOD_ANGLES);
-                hoodAngle = Math.max(hoodAngle, -140); //clamp to prevent it going too high
+                hoodAngle = interpolate(smoothedRange , ODOM_RANGE_SAMPLES, HOOD_ANGLES);
+            }
+
+            if (odomRange > 100) {
+                spindexer.spinPower = 0.4;
+            } else {
+                spindexer.spinPower = 0.9;
             }
 
             telemetry.addData("Odom Range", "%.1f inches", odomRange);
@@ -555,12 +579,14 @@ public class MainRedOpMode extends LinearOpMode
             flyAtSpeed = Math.abs(flyTargetTicksPerSec - flywheel.lastMeasuredVelocity) < 50;
 
             // update LED & rumble
-            if (intakeOn && !spindexer.hasEmptySlot()) {
-                led.setPosition(0.6);
-            }
-            else if (!flyOn) {
-                led.setPosition(1); // white
-            } else if (flyAtSpeed) {
+            if (intakeOn || !flyOn) {
+                if(!spindexer.hasEmptySlot()) {
+                    led.setPosition(0.6);
+                }
+                else {
+                    led.setPosition(1);
+                }
+            }else if (flyAtSpeed) {
                 if (prevflyState != flyAtSpeed) {
                     gamepad1.rumble(300);
                 }
@@ -591,8 +617,9 @@ public class MainRedOpMode extends LinearOpMode
             telemetry.addData("RECOIL", recoilOffset);
 
 
-            double finalHoodAngle = clamp(hoodAngle + hoodOffset + recoilOffset, 26, 292.6);
+            double finalHoodAngle = clamp(hoodAngle + hoodOffset + recoilOffset, -11.5, 292.6);
 
+            telemetry.addData("HOOD ANGLe", finalHoodAngle);
             // Update Hood PID
             hood.setPosition((finalHoodAngle)/355.0);
             //endregion
@@ -601,7 +628,7 @@ public class MainRedOpMode extends LinearOpMode
             if (gamepad1.rightBumperWasPressed()) {
                 intakeOn = !intakeOn;
                 if (intakeOn) {
-                    SpindexerController.Kp = 0.0062;
+                    SpindexerController.Kp = 0.0056;
                     SpindexerController.Kd = 0.0007;
                     SpindexerController.tau = 0.051;
                     flywheel.Kd = 0.0007;
@@ -615,10 +642,10 @@ public class MainRedOpMode extends LinearOpMode
             }
 
             if (!spindexer.hasEmptySlot()) {
-                SpindexerController.Kf = 0.033;
+                SpindexerController.Kf = 0.039;
             }
             else {
-                SpindexerController.Kf = 0.01;
+                SpindexerController.Kf = 0.009;
             }
 
             if (intakeOn) {
@@ -769,15 +796,15 @@ public class MainRedOpMode extends LinearOpMode
             }
 
 //            if (gamepad1.right_trigger > 0.5&& runtime.milliseconds() - lastTriggered > 150) {
-//                //    pidKd += 0.00002;
-//                //lastTriggered = runtime.milliseconds();
-//                flyHoodLock = !flyHoodLock;
+//                 tuKd += 0.00002;
+//                lastTriggered = runtime.milliseconds();
+////                flyHoodLock = !flyHoodLock;
 //            }
-            //if (gamepad1.left_trigger > 0.5 && runtime.milliseconds() - lastTriggered > 150) {
-            //   pidKd -= 0.00002;
-            //   lastTriggered = runtime.milliseconds();
-            //flyHoodLock = !flyHoodLock;
-            //}
+//            if (gamepad1.left_trigger > 0.5 && runtime.milliseconds() - lastTriggered > 150) {
+//               tuKd -= 0.00002;
+//               lastTriggered = runtime.milliseconds();
+////            flyHoodLock = !flyHoodLock;
+//            }
             //endregion
 
             telemetry.addData("Flywheel Speed", "%.0f", flySpeed + flyOffset);
@@ -787,8 +814,7 @@ public class MainRedOpMode extends LinearOpMode
             telemetry.addData("velocity 1", fly1.getVelocity());
             telemetry.addData("velocity 2", fly2.getVelocity());
             telemetry.addData("LAST ERROR", spindexer.lastError);
-            telemetry.addData("Turret Integral", tuIntegral);
-            telemetry.addData("Turret Integral", tuLastError);
+            telemetry.addData("Turret Tuning Val", "%.6f",tuKd);
 
             telemetry.update();
         }
@@ -1099,7 +1125,7 @@ public class MainRedOpMode extends LinearOpMode
         tuIntegral = clamp(tuIntegral, -tuIntegralLimit, tuIntegralLimit);
 
         double rawD = (error - tuLastError) / Math.max(dt, 1e-6);
-        double d = 0.5 * tuLastD + 0.5 * rawD;
+        double d = 0.6 * tuLastD + 0.4 * rawD;
         tuLastD = d;
 
         double out = tuKp * error + tuKi * tuIntegral + tuKd * d;
@@ -1111,7 +1137,7 @@ public class MainRedOpMode extends LinearOpMode
         out += tuKv * targetVel;
 
         out = Range.clip(out, -1.0, 1.0);
-        if (Math.abs(out) < tuDeadband) out = 0.0;
+        //if (Math.abs(out) < tuDeadband) out = 0.0;
 
         turret1.setPower(out);
         turret2.setPower(out);

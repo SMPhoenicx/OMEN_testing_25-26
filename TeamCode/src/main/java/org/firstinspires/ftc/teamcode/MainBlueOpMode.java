@@ -34,6 +34,8 @@ import static java.lang.Math.round;
 import android.util.Size;
 
 import com.pedropathing.follower.Follower;
+import com.pedropathing.ftc.InvertedFTCCoordinates;
+import com.pedropathing.ftc.PoseConverter;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.math.Vector;
@@ -59,6 +61,7 @@ import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.Exposur
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.robotcore.external.navigation.Position;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
@@ -271,6 +274,7 @@ public class MainBlueOpMode extends LinearOpMode
         // Initialize Sensors
         color1 = hardwareMap.get(NormalizedColorSensor.class, "Color 1");
         color2 = hardwareMap.get(NormalizedColorSensor.class, "Color 2");
+        pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
 
         // Hubs
         List<LynxModule> allHubs = hardwareMap.getAll(LynxModule.class);
@@ -305,8 +309,24 @@ public class MainBlueOpMode extends LinearOpMode
         //endregion
 
         //region PRE-START
+
+        pinpoint.update();
+        Pose2D pose = pinpoint.getPosition();
+
+        Pose rawStartPose = PoseConverter.pose2DToPose(
+                pose,
+                InvertedFTCCoordinates.INSTANCE
+        );
+
+        double heading = rawStartPose.getHeading();
+        double normalizedHeading = Math.atan2(Math.sin(heading), Math.cos(heading));
+        Pose startPose = new Pose(rawStartPose.getX(), rawStartPose.getY(), normalizedHeading);
+
         follower = Constants.createFollower(hardwareMap);
-        follower.setStartingPose(StateVars.lastPose);
+        follower.setStartingPose(startPose);
+        telemetry.addData("pose", pose);
+        telemetry.addData("pose pedro", startPose);
+        telemetry.addData("pose last", StateVars.lastPose);
 
         //TODO check if pattern works
         int patternTag = StateVars.patternTagID;
