@@ -172,7 +172,7 @@ public class MainRedOpMode extends LinearOpMode
     private double flyTargetTicksPerSec = 0.0;
 
     private static final double[] ODOM_RANGE_SAMPLES =  {45.2, 50.2, 55.3, 60.9, 66.5, 72.2, 76.7, 81.1, 86.3, 90.9, 96.2, 99.7, 104.3, 109.9, 118.1, 128.5, 139.6, 148.7, 163.4};
-    private static final double[] FLY_SPEEDS =          {993, 1003, 1029, 1059, 1105, 1127, 1135, 1146, 1207, 1226, 1234, 1238, 1240, 1245, 1261, 1355, 1386, 1417, 1465};
+    private static final double[] FLY_SPEEDS =          {993, 1003, 1029, 1059, 1105, 1127, 1135, 1146, 1207, 1222, 1231, 1234, 1237, 1241, 1261, 1355, 1386, 1417, 1465};
     private static final double[] AIR_TIME =   {2.7, 2.68, 2.68, 2.67, 2.69, 2.72, 2.74, 2.76, 2.79, 2.82, 2.86, 2.89, 2.89, 3, 3.23, 3.5, 3.79, 4.27, 4.6};  //seconds divide all by 4
     private static final double[] HOOD_ANGLES = GlobalOffsets.globalHoodAngles;
     private double smoothedRange = 0;
@@ -518,7 +518,7 @@ public class MainRedOpMode extends LinearOpMode
             }
 
             if (odomRange > 100) {
-                spindexer.spinPower = 0.4;
+                spindexer.spinPower = 0.36;
             } else {
                 spindexer.spinPower = 0.9;
             }

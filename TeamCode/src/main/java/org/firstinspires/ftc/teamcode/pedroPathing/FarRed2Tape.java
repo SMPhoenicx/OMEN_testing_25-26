@@ -2,7 +2,11 @@ package org.firstinspires.ftc.teamcode.pedroPathing;
 
 import android.util.Size;
 
+import com.pedropathing.control.FilteredPIDFCoefficients;
+import com.pedropathing.control.PIDFCoefficients;
+import com.pedropathing.control.PredictiveBrakingCoefficients;
 import com.pedropathing.follower.Follower;
+import com.pedropathing.follower.FollowerConstants;
 import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
@@ -48,7 +52,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-@Autonomous(name="Far Red 2 Tape", group="Robot")
+@Autonomous(name="Far Red 2 Tape 🟥", group="A")
 public class FarRed2Tape extends LinearOpMode {
     private ElapsedTime runtime = new ElapsedTime();
     private double timeout = 0;
@@ -140,10 +144,9 @@ public class FarRed2Tape extends LinearOpMode {
     private boolean shootReady = false;
     private boolean isInitialized = false;
 
-    private static final double[] CAM_RANGE_SAMPLES =   {25, 31.8, 37, 39.2, 44.2,  52.6, 53.1, 56.9, 61.5, 65.6, 70.3, 73.4, 77.5, 84.3, 91.8, 100.4, 110.0, 118.4};
-    private static final double[] ODOM_RANGE_SAMPLES =  {45.2, 50.2, 55.3, 60.9, 66.5, 72.2, 76.7, 81.1, 86.3, 90.9, 96.2, 99.7, 104.3, 109.9, 118.1, 128.5, 139.6, 148.7};
-    private static final double[] FLY_SPEEDS =          {1004, 1016, 1041, 1071, 1115, 1132, 1143, 1151, 1212, 1236, 1244, 1252, 1253, 1259, 1273, 1358, 1387, 1421};
-    private static final double[] AIR_TIME =   {2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 3, 3.23, 3.5, 3.79, 4.27};  //seconds divide all by 4
+    private static final double[] ODOM_RANGE_SAMPLES =  {45.2, 50.2, 55.3, 60.9, 66.5, 72.2, 76.7, 81.1, 86.3, 90.9, 96.2, 99.7, 104.3, 109.9, 118.1, 128.5, 139.6, 148.7, 163.4};
+    private static final double[] FLY_SPEEDS =          {993, 1003, 1029, 1059, 1105, 1127, 1135, 1146, 1207, 1226, 1234, 1238, 1240, 1245, 1261, 1355, 1386, 1417, 1465};
+    private static final double[] AIR_TIME =   {2.7, 2.68, 2.68, 2.67, 2.69, 2.72, 2.74, 2.76, 2.79, 2.82, 2.86, 2.89, 2.89, 3, 3.23, 3.5, 3.79, 4.27, 4.6};  //seconds divide all by 4
     private static final double[] HOOD_ANGLES = GlobalOffsets.globalHoodAngles;
     private double smoothedRange = 0;
     private static final double ALPHA = 0.8;
@@ -235,6 +238,21 @@ public class FarRed2Tape extends LinearOpMode {
     //endregion
     double shotTime = 0;
     Vector velocity = new Vector(0,0);
+    public static FollowerConstants tempConstants = new FollowerConstants()
+            .mass(14.06)
+            .forwardZeroPowerAcceleration(-27.344838180167027)//-8.14)
+            .lateralZeroPowerAcceleration(-66.24734786444934)//-11.04)
+            .translationalPIDFCoefficients(new PIDFCoefficients(0.18, 0, 0.033, 0.04))
+            .secondaryTranslationalPIDFCoefficients(new PIDFCoefficients(0.03,0,0.028,0.005))
+            .headingPIDFCoefficients(new PIDFCoefficients(1.2,0,0.1,0.09))
+            .secondaryHeadingPIDFCoefficients(new PIDFCoefficients(1,0,0.22,0.02))
+            .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.47,0,0.0141,0.62,0.03))
+            .secondaryDrivePIDFCoefficients(new FilteredPIDFCoefficients(0.041,0,0.000268,0.62,0.03))
+            .centripetalScaling(0.0003)
+            .predictiveBrakingCoefficients(new PredictiveBrakingCoefficients(0.035,0.10411094805285057,0.0011477963190705217))
+            .useSecondaryTranslationalPIDF(true)
+            .useSecondaryHeadingPIDF(true)
+            .useSecondaryDrivePIDF(true);
 
     private final PathConstraints shootConstraints = new PathConstraints(0.99, 100, 0.85, 1);
 
@@ -248,15 +266,15 @@ public class FarRed2Tape extends LinearOpMode {
         pickup2[0] = new Pose(144-64.0,68.6,Math.toRadians(0));
         pickup2[1] = new Pose(144-9,60.55,Math.toRadians(0));
 
-        pickup3[0] = new Pose(144-15.72,24.91,Math.toRadians(0));
-        pickup3[1] = new Pose(144-8.81,10.39,Math.toRadians(540-220));
+        pickup3[0] = new Pose(144-54.684705882352944,8.392352941176465,Math.toRadians(0));
+        pickup3[1] = new Pose(144-9.81,9.39,Math.toRadians(0));
 
-        junoPose[0] = new Pose(144-29.78,15.40,Math.toRadians(0));//backup pose
-        junoPose[1] = new Pose(144-24.03,4.75,Math.toRadians(0));//control point
-        junoPose[2] = new Pose(144-8.59,5.09,Math.toRadians(0));
+        junoPose[0] = new Pose(144-18.58,13.22,Math.toRadians(0));//backup pose
+        junoPose[1] = new Pose(144-20.05,7.93,Math.toRadians(0));//control point
+        junoPose[2] = new Pose(144-8.59,7.59,Math.toRadians(0));
 
         shoot0 = new Pose(144-62.5,26.5,Math.toRadians(0));
-        shoot1 = new Pose(144-58,19,Math.toRadians(0));
+        shoot1 = new Pose(144-58,19,Math.toRadians(180-130));
         movePoint = new Pose(144-35.5,18.5,Math.toRadians(90));
     }
 
@@ -269,7 +287,7 @@ public class FarRed2Tape extends LinearOpMode {
         scoreCall0 = new FakeParameticCallback(0.8,()-> shootReady=true,follower);
         pickupPath1 = follower.pathBuilder()
                 .addPath(new BezierCurve(shoot0,pickup1[0],pickup1[1]))
-                .setConstantHeadingInterpolation(shoot0.getHeading())
+                .setLinearHeadingInterpolation(shoot0.getHeading(),pickup1[1].getHeading(),0.3)
                 .setTimeoutConstraint(500)
                 .build();
         pickupCall1 = new FakeParameticCallback(0.2,()->{
@@ -278,20 +296,20 @@ public class FarRed2Tape extends LinearOpMode {
         },follower);
         pickupPath2 = follower.pathBuilder()
                 .addPath(new BezierCurve(shoot1,pickup2[0],pickup2[1]))
-                .setConstantHeadingInterpolation(shoot1.getHeading())
+                .setLinearHeadingInterpolation(shoot1.getHeading(),pickup2[1].getHeading(),0.3)
                 .setTimeoutConstraint(500)
                 .build();
         pickupCall2 = new FakeParameticCallback(0.35,()->{
             follower.setMaxPower(0.36);
             intakeOn = true;
         },follower);
-
         pickupPath3 = follower.pathBuilder()
                 .addPath(new BezierCurve(shoot1,pickup3[0],pickup3[1]))
-                .setLinearHeadingInterpolation(shoot1.getHeading(),pickup3[1].getHeading())
+                .setLinearHeadingInterpolation(shoot1.getHeading(),pickup3[1].getHeading(),0.3)
                 .setTimeoutConstraint(500)
                 .build();
-        pickupCall3 = new FakeParameticCallback(0.33,()->{
+        pickupCall3 = new FakeParameticCallback(0.5,()->{
+            follower.setMaxPower(0.5);
             intakeOn = true;
         },follower);
         junoPath[0] = follower.pathBuilder()
@@ -303,6 +321,7 @@ public class FarRed2Tape extends LinearOpMode {
                 .setLinearHeadingInterpolation(junoPose[0].getHeading(),junoPose[2].getHeading(),0.8)
                 .setTimeoutConstraint(500)
                 .build();
+
         scorePath1 = follower.pathBuilder()
                 .addPath(new BezierLine(pickup1[1],shoot1))
                 .setConstraints(shootConstraints)
@@ -317,13 +336,13 @@ public class FarRed2Tape extends LinearOpMode {
                 .build();
         scoreCall2 = new FakeParameticCallback(0.9,()-> shootReady=true,follower);
         scorePath3 = follower.pathBuilder()
-                .addPath(new BezierLine(pickup3[1],shoot1))
+                .addPath(new BezierLine(junoPose[2],shoot1))
                 .setConstraints(shootConstraints)
                 .setTranslationalConstraint(1.5)
-                .setLinearHeadingInterpolation(junoPose[2].getHeading(),shoot1.getHeading(),0.5)
+                .setLinearHeadingInterpolation(junoPose[2].getHeading(),shoot1.getHeading(),0.4)
                 .build();
         scoreCall3 = new FakeParameticCallback(0.9,()-> shootReady=true,follower);
-//        turretCall3 = new FakeParameticCallback(0.6,()-> trackingOn=true,follower);
+        turretCall3 = new FakeParameticCallback(0.3,()-> trackingOn=true,follower);
         moveScore = follower.pathBuilder()
                 .addPath(new BezierLine(shoot1,movePoint))
                 .setLinearHeadingInterpolation(shoot1.getHeading(), movePoint.getHeading())
@@ -514,7 +533,7 @@ public class FarRed2Tape extends LinearOpMode {
                             followPathPCallback(scorePath0,true,scoreCall0);
                             autoShootOn = true;
                             shootingState=0;
-                            tuOffset = 13;
+                            tuOffset = 7;
                             flyOffset = 35;
 
                             timeout = runtime.milliseconds()+2000;
@@ -528,8 +547,8 @@ public class FarRed2Tape extends LinearOpMode {
                     case 1:
                         if(subState==0){
                             followPathPCallback(pickupPath1,false,pickupCall1);
-                            tuOffset = 2;
-                            flyOffset += shoot0change;
+                            tuOffset = -2;
+                            flyOffset = 35;
 
                             subState++;
                         }
@@ -550,7 +569,8 @@ public class FarRed2Tape extends LinearOpMode {
                     case 2:
                         if(subState==0){
                             followPathPCallback(pickupPath2,false,pickupCall2);
-                            flyOffset = 20;
+                            tuOffset = -2;
+                            flyOffset = 35;
 
                             subState++;
                         }
@@ -570,8 +590,13 @@ public class FarRed2Tape extends LinearOpMode {
                     //region CYCLE THREE
                     case 3:
                         if(subState==0){
+                            tempConstants.usePredictiveBraking = false;
+                            follower.setConstants(tempConstants);
                             followPathPCallback(pickupPath3,true,pickupCall3);
+                            flyOffset = 20;
+                            tuOffset = 0;
                             trackingOn = false;
+                            shutoffIntake = false;
                             canCutoffTimer = true;
                             cutoffTimer = runtime.milliseconds() + 5000;
 
@@ -582,6 +607,7 @@ public class FarRed2Tape extends LinearOpMode {
                             subState++;
                         }
                         else if(subState==2){
+                            follower.setMaxPower(0.8);
                             follower.followPath(junoPath[0],false);
                             canCutoffTimer = true;
                             cutoffTimer = runtime.milliseconds() + 1500;
@@ -590,24 +616,24 @@ public class FarRed2Tape extends LinearOpMode {
                         }
                         else if(subState==3){
                             follower.followPath(junoPath[1],true);
-                            trackingOn = true;
                             canCutoffTimer = true;
-                            cutoffTimer = runtime.milliseconds() + 3000;
+                            cutoffTimer = runtime.milliseconds() + 1500;
 
 
                             subState++;
                         }
                         else if(subState==4){
-                            timeout = runtime.milliseconds() + 150;
+                            timeout = runtime.milliseconds() + 0;
                             subState++;
                             canCutoffTimer = false;
                         }
                         //INTAKE is subState 0-4
                         else if(subState==5){
+                            tempConstants.usePredictiveBraking = true;
+                            follower.setConstants(tempConstants);
                             shutoffIntake = true;
-                            trackingOn = true;
                             follower.setMaxPower(1);
-                            followPathPCallback(scorePath3,true,scoreCall3);
+                            followPathPCallback(scorePath3,true,scoreCall3,turretCall3);
                             autoShootOn = true;
                             shootingState=0;
 
@@ -659,9 +685,6 @@ public class FarRed2Tape extends LinearOpMode {
                     if(pathState!=3){
                         follower.breakFollowing();
                         subState++;
-                    }else if(!shutoffIntake){
-                        follower.breakFollowing();
-                        subState = 5;
                     }
                     intakeOn = false;
                     shutoffIntake = false;
@@ -821,7 +844,7 @@ public class FarRed2Tape extends LinearOpMode {
                         follower.getPose().getY(),
                         follower.getPose().getHeading()
                 )
-                        + (tuOffset * turretClock);//the higher the offset, the more to the left it shoots (inside of the field)
+                        + (tuOffset * turretClock);
             }
             //endregion
 

@@ -48,7 +48,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-@Autonomous(name="Close Red 12 Ball", group="Robot")
+@Autonomous(name="Close Red 12 Ball 🟥", group="A")
 public class CloseRed12Ball extends LinearOpMode {
     private ElapsedTime runtime = new ElapsedTime();
     private double timeout = 0;
@@ -139,10 +139,9 @@ public class CloseRed12Ball extends LinearOpMode {
     private boolean shootReady = false;
     private boolean isInitialized = false;
 
-    private static final double[] CAM_RANGE_SAMPLES =   {25, 31.8, 37, 39.2, 44.2,  52.6, 53.1, 56.9, 61.5, 65.6, 70.3, 73.4, 77.5, 84.3, 91.8, 100.4, 110.0, 118.4};
-    private static final double[] ODOM_RANGE_SAMPLES =  {45.2, 50.2, 55.3, 60.9, 66.5, 72.2, 76.7, 81.1, 86.3, 90.9, 96.2, 99.7, 104.3, 109.9, 118.1, 128.5, 139.6, 148.7};
-    private static final double[] FLY_SPEEDS =          {1004, 1016, 1041, 1071, 1115, 1132, 1143, 1151, 1212, 1236, 1244, 1252, 1253, 1259, 1273, 1358, 1387, 1421};
-    private static final double[] AIR_TIME =   {2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 2.89, 3, 3.23, 3.5, 3.79, 4.27};  //seconds divide all by 4
+    private static final double[] ODOM_RANGE_SAMPLES =  {45.2, 50.2, 55.3, 60.9, 66.5, 72.2, 76.7, 81.1, 86.3, 90.9, 96.2, 99.7, 104.3, 109.9, 118.1, 128.5, 139.6, 148.7, 163.4};
+    private static final double[] FLY_SPEEDS =          {993, 1003, 1029, 1059, 1105, 1127, 1135, 1146, 1207, 1226, 1234, 1238, 1240, 1245, 1261, 1355, 1386, 1417, 1465};
+    private static final double[] AIR_TIME =   {2.7, 2.68, 2.68, 2.67, 2.69, 2.72, 2.74, 2.76, 2.79, 2.82, 2.86, 2.89, 2.89, 3, 3.23, 3.5, 3.79, 4.27, 4.6};  //seconds divide all by 4
     private static final double[] HOOD_ANGLES = GlobalOffsets.globalHoodAngles;
     private double smoothedRange = 0;
     private static final double ALPHA = 0.8;
@@ -260,7 +259,7 @@ public class CloseRed12Ball extends LinearOpMode {
 
         shoot1 = new Pose(144-57.5,98.4,Math.toRadians(0));
 //        shoot0 = new Pose(60,119,Math.toRadians(150));
-        shoot0 = new Pose(144-54.43,98.4,Math.toRadians(180-60));
+        shoot0 = new Pose(144-54.43,98.4,Math.toRadians(180-70));
         shoot3 = new Pose(144-61.32044198895028,116.9171270718232,Math.toRadians(0));
         movePoint = new Pose(144-31,69.6,Math.toRadians(90));
     }
@@ -280,7 +279,7 @@ public class CloseRed12Ball extends LinearOpMode {
         pickupCall1 = new FakeParameticCallback(0.26,()->{
             follower.setMaxPower(0.3);
             intakeOn = true;
-            },follower);
+        },follower);
         pickupPath2 = follower.pathBuilder()
                 .addPath(new BezierCurve(shoot1,pickup2[0],pickup2[1]))
                 .setConstantHeadingInterpolation(shoot1.getHeading())
@@ -309,14 +308,14 @@ public class CloseRed12Ball extends LinearOpMode {
                 .setConstraints(shootConstraints)
                 .setLinearHeadingInterpolation(gatePose[1].getHeading(),shoot1.getHeading())
                 .build();
-        scoreCall1 = new FakeParameticCallback(0.984, ()->shootReady=true,follower);
+        scoreCall1 = new FakeParameticCallback(0.94, ()->shootReady=true,follower);
         scorePath2 = follower.pathBuilder()
                 .addPath(new BezierCurve(pickup2[1],pickup2[2],shoot1))
                 .setConstraints(shootConstraints)
                 .setTranslationalConstraint(1.5)
                 .setConstantHeadingInterpolation(shoot1.getHeading())
                 .build();
-        scoreCall2 = new FakeParameticCallback(0.99, ()->shootReady=true,follower);
+        scoreCall2 = new FakeParameticCallback(0.94, ()->shootReady=true,follower);
         scorePath3 = follower.pathBuilder()
                 .addPath(new BezierCurve(pickup3[1],pickup3[2],shoot3))
                 .setConstraints(shootConstraints)
@@ -324,7 +323,7 @@ public class CloseRed12Ball extends LinearOpMode {
                 .setTranslationalConstraint(1.5)
                 .setConstantHeadingInterpolation(shoot3.getHeading())
                 .build();
-        scoreCall3 = new FakeParameticCallback(0.99, ()->shootReady=true,follower);
+        scoreCall3 = new FakeParameticCallback(0.94, ()->shootReady=true,follower);
         moveScore = follower.pathBuilder()
                 .addPath(new BezierLine(shoot3,movePoint))
                 .setLinearHeadingInterpolation(shoot3.getHeading(), movePoint.getHeading())
@@ -465,7 +464,7 @@ public class CloseRed12Ball extends LinearOpMode {
                             motifOn = true;
                             autoShootOn = true;
                             shootingState=1;
-                            tuOffset = -7.5;
+//                            tuOffset = -60.5;//negative is more left
 
                             timeout = runtime.milliseconds() + 700; //delay for motif read
                             subState++;
@@ -480,6 +479,7 @@ public class CloseRed12Ball extends LinearOpMode {
                         if(subState==0){
                             followPathPCallback(pickupPath1,false,pickupCall1);
                             tuOffset = 0.0;
+                            motifOn = false;
 
                             flySpeed += shoot0change;
 
@@ -577,10 +577,6 @@ public class CloseRed12Ball extends LinearOpMode {
                     StateVars.patternTagID = april;
                     subState++;
                 }
-                else if(!follower.isBusy()){
-                    motifOn=false;
-                    subState++;
-                }
             }
             //endregion
 
@@ -588,8 +584,13 @@ public class CloseRed12Ball extends LinearOpMode {
             char detectedColor = getRealColor();
             boolean present = isBallPresent();
             int currentSlot = indexToSlot(spindexerIndex);
-            if(intakeOn&&runtime.milliseconds()>timeout){
+//            if(pathState!=0){
+//                intake.setPower(1);
+//            }
+            boolean thisFuckassIntake=false;
+            if(intakeOn&&timeout<runtime.milliseconds()){
                 intake.setPower(1);
+                thisFuckassIntake = true;
                 transOn=false;
                 if (present && savedBalls[currentSlot] == 'n' && spindexerAtTarget) {
 
@@ -671,7 +672,7 @@ public class CloseRed12Ball extends LinearOpMode {
                     shootingState++;
                 }
                 else if(shootingState==2){
-                    if(flyAtSpeed){
+                    if(flyAtSpeed||pathState!=0){
                         transOn = true;
                         spin1.setPower(0.85);
                         spin2.setPower(0.85);
@@ -744,6 +745,8 @@ public class CloseRed12Ball extends LinearOpMode {
             //region FLYWHEEL
             //velocity
 
+            if(flySpeed > 1200&&pathState!=3) flySpeed = 1200;
+            if(flySpeed > 1300&&pathState==3) flySpeed = 1300;
             double voltage = hardwareMap.voltageSensor.iterator().next().getVoltage();
 //            flySpeed = 0;
             flywheel.updateFlywheelPID(
@@ -828,6 +831,7 @@ public class CloseRed12Ball extends LinearOpMode {
             telemetry.addData("tuPos",tuPos);
             telemetry.addData("heading", follower.getPose().getHeading());
             telemetry.addData("Green Position",greenPos);
+            telemetry.addData("thisFuckassIntake",thisFuckassIntake);
             telemetry.addData("actual fly speed","Wheel 1: %.1f Wheel 2: %.1f", fly1.getVelocity(), fly2.getVelocity());
             telemetry.addData("spindexer pos",spindexerIndex);
             telemetry.addData("spindexer at target",spindexerAtTarget);

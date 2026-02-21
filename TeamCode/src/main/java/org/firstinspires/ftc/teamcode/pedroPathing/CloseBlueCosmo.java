@@ -48,8 +48,8 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-@Autonomous(name="Close Blue 12 Ball 🟦", group="A")
-public class CloseBlue12Ball extends LinearOpMode {
+@Autonomous(name="Close Blue CosmoBots 🟦", group="B")
+public class CloseBlueCosmo extends LinearOpMode {
     private ElapsedTime runtime = new ElapsedTime();
     private double timeout = 0;
 
@@ -60,13 +60,14 @@ public class CloseBlue12Ball extends LinearOpMode {
     private Pose[] pickup2 = new Pose[3];
     private Pose[] pickup3 = new Pose[3];
     private Pose[] gatePose = new Pose[3];
-    private PathChain scorePath0, scorePath1, scorePath2, scorePath3, moveScore,limelightPath,gatePath, pickupPath1, pickupPath2, pickupPath3;
+    private Pose[] gate2Pose = new Pose[3];
+    private PathChain scorePath0, scorePath1, scorePath2, scorePath3, moveScore,limelightPath,gatePath, gate2Path, pickupPath1, pickupPath2, pickupPath3;
     //endregion
 
     //region PARA CALLBACKS
-    FakeParameticCallback current = null;
+    FakeParameticCallback[] current = new FakeParameticCallback[2];
 
-    FakeParameticCallback scoreCall0, scoreCall1, scoreCall2, scoreCall3, pickupCall1, pickupCall2, pickupCall3;
+    FakeParameticCallback scoreCall0, scoreCall1, scoreCall2, scoreCall3, pickupCall1, pickupCall2, pickupCall3,turretCall2;
     //endregion
 
     //region HARDWARE DECLARATIONS
@@ -246,12 +247,15 @@ public class CloseBlue12Ball extends LinearOpMode {
         pickup1[1] = new Pose(17.5,84,Math.toRadians(180));
 
         gatePose[0] = new Pose(29.82,77.24,Math.toRadians(90));
-        gatePose[1] = new Pose(14.62,75.3,Math.toRadians(90));//14.62 75.3
+        gatePose[1] = new Pose(12.62,75.3,Math.toRadians(90));//14.62 75.3
 
         pickup2[0] = new Pose(63.97,54.52,Math.toRadians(180));
         pickup2[1] = new Pose(10,58.36,Math.toRadians(180));
         //return from pickup
         pickup2[2] = new Pose(48.083, 54.73,Math.toRadians(180));
+
+        gate2Pose[0] = new Pose(31.73,56.58,Math.toRadians(270));
+        gate2Pose[1] = new Pose(9.43,69.91,Math.toRadians(270));
 
         pickup3[0] = new Pose(76.64,29.3,Math.toRadians(180));
         pickup3[1] = new Pose(10,34.28,Math.toRadians(180));
@@ -303,6 +307,11 @@ public class CloseBlue12Ball extends LinearOpMode {
                 .setConstraints(gateConstraints)
                 .setLinearHeadingInterpolation(pickup1[1].getHeading(),gatePose[1].getHeading())
                 .build();
+        gate2Path = follower.pathBuilder()
+                .addPath(new BezierCurve(pickup2[1],gate2Pose[0],gate2Pose[1]))
+                .setConstraints(gateConstraints)
+                .setLinearHeadingInterpolation(pickup2[1].getHeading(),gate2Pose[1].getHeading())
+                .build();
         scorePath1 = follower.pathBuilder()
                 .addPath(new BezierLine(gatePose[1],shoot1))
                 .setConstraints(shootConstraints)
@@ -310,11 +319,14 @@ public class CloseBlue12Ball extends LinearOpMode {
                 .build();
         scoreCall1 = new FakeParameticCallback(0.94, ()->shootReady=true,follower);
         scorePath2 = follower.pathBuilder()
-                .addPath(new BezierCurve(pickup2[1],pickup2[2],shoot1))
+                .addPath(new BezierLine(gate2Pose[1],shoot1))
                 .setConstraints(shootConstraints)
                 .setTranslationalConstraint(1.5)
-                .setConstantHeadingInterpolation(shoot1.getHeading())
+                .setLinearHeadingInterpolation(gate2Pose[1].getHeading(),shoot1.getHeading(),0.5)
                 .build();
+        turretCall2 = new FakeParameticCallback(0.5,()->{
+            trackingOn = true;
+        },follower);
         scoreCall2 = new FakeParameticCallback(0.94, ()->shootReady=true,follower);
         scorePath3 = follower.pathBuilder()
                 .addPath(new BezierCurve(pickup3[1],pickup3[2],shoot3))
@@ -447,9 +459,14 @@ public class CloseBlue12Ball extends LinearOpMode {
             //endregion
 
             //region CHECK PCALLBACKS
-            if(current!=null){
-                if(current.check()){
-                    current = null;
+            if(current[0]!=null){
+                if(current[0].check()){
+                    current[0] = null;
+                }
+            }
+            if(current[1]!=null){
+                if(current[1].check()){
+                    current[1] = null;
                 }
             }
             //endregion
@@ -510,19 +527,32 @@ public class CloseBlue12Ball extends LinearOpMode {
                     case 2:
                         if(subState==0){
                             followPathPCallback(pickupPath2,false,pickupCall2);
+                            tuOffset = 0.0;
+                            motifOn = false;
+                            trackingOn = false;
+
+                            flySpeed += shoot0change;
 
                             subState++;
                         }
                         //INTAKE is subState 1
                         else if(subState==2){
                             follower.setMaxPower(1);
-                            followPathPCallback(scorePath2,true,scoreCall2);
+                            follower.followPath(gate2Path,false);
+                            gateCutoff = true;
+
+                            timeout = runtime.milliseconds()+1400;
+                            subState++;
+                        }
+                        else if(subState==3){
+                            gateCutoff = false;
+                            followPathPCallback(scorePath2,true,scoreCall2,turretCall2);
                             autoShootOn = true;
                             shootingState=0;
 
                             subState++;
                         }
-                        //AUTO SHOOTING is subState 3, resets subState, and increments pathState
+                        //AUTO SHOOTING is subState 4, resets subState, and increments pathState
                         break;
                     //endregion
 
@@ -962,9 +992,14 @@ public class CloseBlue12Ball extends LinearOpMode {
         return ALPHA * newValue + (1 - ALPHA) * previousValue;
     }
     //endregion
-    private void followPathPCallback(PathChain path, boolean holdEnd, FakeParameticCallback pCallback){
+    private void followPathPCallback(PathChain path, boolean holdEnd, FakeParameticCallback pCallback1){
         follower.followPath(path,holdEnd);
-        current = pCallback;
+        current[0] = pCallback1;
+    }
+    private void followPathPCallback(PathChain path, boolean holdEnd, FakeParameticCallback pCallback1, FakeParameticCallback pCallback2){
+        follower.followPath(path,holdEnd);
+        current[0] = pCallback1;
+        current[1] = pCallback2;
     }
     private double normalizeDeg180(double deg) {
         deg = (deg + 180) % 360;
